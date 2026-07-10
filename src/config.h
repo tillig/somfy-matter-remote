@@ -68,3 +68,8 @@ static constexpr const char* DEVICE_HOSTNAME_BASE = "somfy-awning";
 // How long to wait for a Wi-Fi station connection before giving up on a boot
 // attempt, in milliseconds.
 static constexpr uint32_t WIFI_CONNECT_TIMEOUT_MS = 20000;
+// Consecutive authentication failures before the device concludes its stored
+// password is stale (for example the network password was changed) and falls
+// back to the setup portal so a new one can be entered without a factory reset.
+// A transient disconnect does not count; only genuine auth rejections do.
+static constexpr uint8_t WIFI_AUTH_FAIL_LIMIT = 3;

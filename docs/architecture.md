@@ -60,8 +60,11 @@ The firmware never persists a set of credentials it has not proven, and never st
 
 - **Setup portal (test before save)**: the phone is on the device's own access point, which stays up during the test (`WIFI_AP_STA` mode). `WiFiConnection::testCredentials()` attempts the join while the portal remains reachable, so the page reports success or failure. Credentials are written to NVS only on success; on failure the form is redisplayed for another try.
 - **Dashboard change (pending, try on reboot, auto-revert)**: here the browser reaches the device through the current network, so a live test cannot be reported (testing means leaving that network). `ConfigStore` stores the new network as a separate *pending* slot alongside the active credentials. On the next boot `WiFiConnection::begin()` tries pending first; on success it promotes pending to active, and on failure it discards pending and connects with the still-intact active credentials. A dashboard typo therefore leaves the device on its current network.
+- **Stale password recovery (changed network password)**: `WiFiConnection` registers a disconnect-reason event handler and counts consecutive authentication failures, which `isAuthFailureReason()` distinguishes from unreachable-network reasons like `NO_AP_FOUND`. When the stored password is rejected (on boot, or repeatedly at runtime after the network password changes), the device falls back to the setup portal with an auth-recovery flag rather than retrying forever. The setup page then explains that the saved password was rejected and prefills the known network name. At runtime this fallback happens by rebooting once `WIFI_AUTH_FAIL_LIMIT` is reached, so the access point and captive portal come up cleanly through the normal boot path.
 
 A factory reset (long button press) is the heavier action: it clears the Matter fabric and both the active and pending Wi-Fi credentials, returning the device to setup mode on the next boot.
+
+The dividing line is deliberate: a transient outage (router rebooting, device out of range) is never treated as bad credentials, so the device keeps retrying and rejoins on its own without dropping out of Google Home. Only a genuine authentication rejection triggers the portal fallback.
 
 ## Runtime Flow
 

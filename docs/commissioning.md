@@ -62,7 +62,9 @@ Once the device is on Wi-Fi, it serves a small status page at `http://somfy-awni
 
 After a power cycle, the device rejoins Wi-Fi and its Matter fabric automatically; it does not need re-commissioning. If the network is briefly unreachable it keeps retrying rather than dropping back into setup mode. The last-known position is restored from NVS so the tile shows a sensible state immediately.
 
-To change only the Wi-Fi network or password, use the `Change Wi-Fi` form on the dashboard; that leaves Matter commissioning intact. To move to a different controller or recover from a bad state, do a factory reset with a long press (about 10 seconds) of the panel-mount button. That decommissions Matter, clears the fabric data, and clears the stored Wi-Fi credentials, so the device reopens the setup access point on the next boot for fresh setup. The Somfy pairing and rolling code are unaffected; they live in separate storage.
+If the network password is changed while the device is configured, its stored password becomes stale. The device detects the repeated authentication rejection (distinct from a network simply being down) and reopens its `Awning-Setup-XXXX` access point so the new password can be entered, keeping its Matter commissioning. The setup page explains that the saved password was rejected and prefills the network name, so only the new password is needed. This means a changed router password never requires a factory reset. The recommended order is to update the password on the router first, then reconnect the device through its setup portal.
+
+To change only the Wi-Fi network or password proactively, use the `Change Wi-Fi` form on the dashboard; that leaves Matter commissioning intact. To move to a different controller or recover from a bad state, do a factory reset with a long press (about 10 seconds) of the panel-mount button. That decommissions Matter, clears the fabric data, and clears the stored Wi-Fi credentials, so the device reopens the setup access point on the next boot for fresh setup. The Somfy pairing and rolling code are unaffected; they live in separate storage.
 
 ## Multi-Admin Sharing
 
@@ -72,7 +74,7 @@ Matter supports multi-admin, so the same physical device can be shared into Alex
 
 If Google Home cannot find the device, confirm the phone and the ESP32 are on the same Wi-Fi network and subnet, and that the network allows the IPv6 and mDNS traffic Matter relies on. Many mesh and guest networks block this.
 
-If the device does not join Wi-Fi during setup, the setup page reports the failed test and the credentials are not saved; correct the network name or password and try again. If a dashboard `Change Wi-Fi` attempt targets an unreachable network, the device reverts to the current network on its own, so no recovery step is needed.
+If the device does not join Wi-Fi during setup, the setup page reports the failed test and the credentials are not saved; correct the network name or password and try again. If a dashboard `Change Wi-Fi` attempt targets an unreachable network, the device reverts to the current network on its own, so no recovery step is needed. If the network password later changes, the device reopens its setup access point on its own so the new password can be entered; look for the `Awning-Setup-XXXX` network again.
 
 If commissioning starts but fails partway, power-cycle the ESP32 and retry from the serial-printed pairing code. If it still fails, factory-reset Matter with the long button press and try once more.
 

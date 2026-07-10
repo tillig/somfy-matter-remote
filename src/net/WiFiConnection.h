@@ -41,11 +41,21 @@ public:
     bool testCredentials(const String& ssid, const String& password);
 
     // Service reconnection while in Station mode. Call from loop(). No-op in
-    // SetupAp mode.
+    // SetupAp mode. If the stored password is rejected repeatedly (for example
+    // the network password was changed), it reboots the device, which then
+    // lands in SetupAp mode so a new password can be entered without a factory
+    // reset.
     void loop();
 
     Mode getMode() const {
         return mode;
+    }
+
+    // True when the device fell back to the setup access point specifically
+    // because its stored password was rejected, rather than because no
+    // credentials were ever stored. The setup page uses this to explain why.
+    bool isAuthRecovery() const {
+        return authRecovery;
     }
 
     // True when in Station mode and currently associated with an IP address.
@@ -70,10 +80,13 @@ private:
     bool connectStation(const String& ssid, const String& password);
     void startSetupAp();
     void startMdns();
+    // Register the disconnect-reason event handler once.
+    void installEventHandler();
     // Lowercase hex of the last two bytes of the chip MAC, for example "a4c1".
     static String deviceSuffix();
 
     ConfigStore& store;
     Mode mode = Mode::Booting;
     uint32_t lastReconnectAttempt = 0;
+    bool authRecovery = false;
 };

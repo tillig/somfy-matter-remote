@@ -54,7 +54,13 @@ void WebInterface::loop() {
 
 void WebInterface::handleRoot() {
     if (net.getMode() == WiFiConnection::Mode::SetupAp) {
-        server.send(200, "text/html", renderSetupPage(""));
+        // Explain an auth-recovery fallback differently from first-time setup.
+        const String message = net.isAuthRecovery()
+                                   ? "The saved Wi-Fi password was rejected, which usually means the "
+                                     "network password changed. Enter the current password to reconnect."
+                                   : "";
+        // In auth recovery the network name is usually unchanged, so prefill it.
+        server.send(200, "text/html", renderSetupPage(message, store.getWiFiSsid()));
     } else {
         server.send(200, "text/html", renderDashboardPage());
     }
@@ -65,7 +71,7 @@ void WebInterface::handleSave() {
     const String password = server.arg("password");
 
     if (ssid.length() == 0) {
-        server.send(200, "text/html", renderSetupPage("SSID cannot be empty."));
+        server.send(200, "text/html", renderSetupPage("SSID cannot be empty.", ""));
         return;
     }
 
@@ -75,14 +81,16 @@ void WebInterface::handleSave() {
         // success. A typo just shows an error and lets the user try again.
         if (net.testCredentials(ssid, password)) {
             store.setWiFiCredentials(ssid, password);
-            server.send(200, "text/html", renderSetupPage("Connected to \"" + ssid + "\". Saving and restarting."));
+            server.send(
+                200, "text/html", renderSetupPage("Connected to \"" + ssid + "\". Saving and restarting.", ssid));
             rebootRequested = true;
             rebootAt = millis() + REBOOT_DELAY_MS;
         } else {
             server.send(200,
                         "text/html",
                         renderSetupPage("Could not connect to \"" + ssid +
-                                        "\". Check the network name and password, then try again."));
+                                            "\". Check the network name and password, then try again.",
+                                        ssid));
         }
         return;
     }
@@ -128,7 +136,7 @@ static const char* PAGE_STYLE = "<style>body{font-family:system-ui,sans-serif;ma
                                 "a{color:#6cf}.msg{margin-top:1rem;padding:.6rem .8rem;"
                                 "border-radius:6px;background:#223;border:1px solid #456}</style>";
 
-String WebInterface::renderSetupPage(const String& message) {
+String WebInterface::renderSetupPage(const String& message, const String& prefillSsid) {
     String html = "<!DOCTYPE html><html><head><meta charset='utf-8'>";
     html += "<meta name='viewport' content='width=device-width,initial-scale=1'>";
     html += "<title>Awning Wi-Fi Setup</title>";
@@ -141,7 +149,7 @@ String WebInterface::renderSetupPage(const String& message) {
     }
     html += "<form method='POST' action='/save'>";
     html += "<label for='ssid'>Network name (SSID)</label>";
-    html += "<input id='ssid' name='ssid' autocomplete='off' required>";
+    html += "<input id='ssid' name='ssid' autocomplete='off' value='" + prefillSsid + "' required>";
     html += "<label for='password'>Password</label>";
     html += "<input id='password' name='password' type='password' autocomplete='off'>";
     html += "<button type='submit'>Save and Restart</button></form></body></html>";

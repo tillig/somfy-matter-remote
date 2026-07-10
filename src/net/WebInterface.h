@@ -40,9 +40,10 @@ private:
     void handleRoot();
     void handleSave();
     void handleNotFound();
-    // The setup and message pages depend only on their argument, not on device
-    // state.
-    static String renderSetupPage(const String& message);
+    // The setup and message pages depend only on their arguments, not on device
+    // state. prefillSsid seeds the SSID field (used in auth recovery, where the
+    // network name is usually unchanged and only the password is stale).
+    static String renderSetupPage(const String& message, const String& prefillSsid);
     static String renderDashboardMessagePage(const String& message);
     String renderDashboardPage() const;
 
