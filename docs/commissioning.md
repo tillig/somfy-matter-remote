@@ -22,12 +22,12 @@ This is hardware-gated work. It cannot be validated without the physical device 
 
 On first boot, with no Wi-Fi credentials stored, the device hosts its own open Wi-Fi access point and setup page.
 
-1. Power on the device. From a phone or laptop, join the Wi-Fi network named `Awning-Setup`.
+1. Power on the device. From a phone or laptop, join the open Wi-Fi network named `Awning-Setup-XXXX`, where `XXXX` is a per-device suffix (so two units never present the same name).
 2. A setup page should open automatically (a captive portal). If it does not, browse to `http://192.168.4.1`.
 3. Enter your home Wi-Fi network name and password, then choose `Save and Restart`.
 4. The device stores the credentials, reboots, and joins your Wi-Fi. The serial log prints the IP address it received.
 
-The credentials are stored in NVS and reused on later boots, so this is a one-time step. To change networks later, use the long button press to factory-reset, which also clears Wi-Fi credentials and reopens the setup access point.
+The credentials are stored in NVS and reused on later boots, so this is a one-time step. To change networks or update the password later, use the `Change Wi-Fi` form on [the web dashboard](#the-web-dashboard); that keeps the Matter commissioning intact. A factory reset (long button press) also clears the credentials and reopens the setup access point, but it additionally decommissions Matter, so prefer the dashboard for a simple network change.
 
 ## Before You Commission
 
@@ -56,13 +56,13 @@ Because a Somfy awning gives no position feedback, the tile reports only the two
 
 ## The Web Dashboard
 
-Once the device is on Wi-Fi, it serves a small status page at `http://somfy-awning.local` (or at the IP address shown in the serial log). The dashboard reports the hostname, IP address, Wi-Fi signal strength, and Matter commissioning state. Before commissioning it also shows the manual pairing code and a link to the QR code, so the pairing information is available without the serial monitor. After commissioning it points to multi-admin sharing for adding other ecosystems.
+Once the device is on Wi-Fi, it serves a small status page at `http://somfy-awning-XXXX.local` (where `XXXX` is the per-device suffix), or at the IP address shown in the serial log. The exact hostname is printed to serial on connect and shown on the page itself. The dashboard reports the hostname, IP address, Wi-Fi signal strength, and Matter commissioning state. Before commissioning it also shows the manual pairing code and a link to the QR code, so the pairing information is available without the serial monitor. After commissioning it points to multi-admin sharing for adding other ecosystems. The page also has a `Change Wi-Fi` form for moving the device to another network without a factory reset.
 
 ## Reconnection And Recovery
 
 After a power cycle, the device rejoins Wi-Fi and its Matter fabric automatically; it does not need re-commissioning. If the network is briefly unreachable it keeps retrying rather than dropping back into setup mode. The last-known position is restored from NVS so the tile shows a sensible state immediately.
 
-To move the device to a different Wi-Fi network or controller, or to recover from a bad state, do a factory reset with a long press (about 10 seconds) of the panel-mount button. That decommissions Matter, clears the fabric data, and clears the stored Wi-Fi credentials, so the device reopens the `Awning-Setup` access point on the next boot for fresh setup. The Somfy pairing and rolling code are unaffected; they live in separate storage.
+To change only the Wi-Fi network or password, use the `Change Wi-Fi` form on the dashboard; that leaves Matter commissioning intact. To move to a different controller or recover from a bad state, do a factory reset with a long press (about 10 seconds) of the panel-mount button. That decommissions Matter, clears the fabric data, and clears the stored Wi-Fi credentials, so the device reopens the setup access point on the next boot for fresh setup. The Somfy pairing and rolling code are unaffected; they live in separate storage.
 
 ## Multi-Admin Sharing
 

@@ -129,7 +129,7 @@ String WebInterface::renderDashboardPage() const {
     html += "</head><body><h1>Somfy Awning</h1>";
 
     html += "<table>";
-    html += "<tr><th>Hostname</th><td>" + String(DEVICE_HOSTNAME) + ".local</td></tr>";
+    html += "<tr><th>Hostname</th><td>" + net.getHostname() + ".local</td></tr>";
     html += "<tr><th>IP address</th><td>" + net.getIP().toString() + "</td></tr>";
     html += "<tr><th>Wi-Fi</th><td>" + store.getWiFiSsid() + " (" + String(net.getRssi()) + " dBm)</td></tr>";
     html += "<tr><th>Matter</th><td>" + String(commissioned ? "Commissioned" : "Not commissioned") + "</td></tr>";
@@ -148,6 +148,19 @@ String WebInterface::renderDashboardPage() const {
         html += "<tr><th>QR code</th><td><a href='" + Matter.getOnboardingQRCodeUrl() + "'>Open QR code</a></td></tr>";
         html += "</table>";
     }
+
+    // Wi-Fi change form. Submitting it stores new credentials and reboots onto
+    // the new network, leaving Matter commissioning intact (unlike a factory
+    // reset). The SSID field is prefilled with the current network.
+    html += "<h2>Change Wi-Fi</h2>";
+    html += "<p>Update the network this device joins. It will restart to apply "
+            "the change; its Matter pairing is kept.</p>";
+    html += "<form method='POST' action='/save'>";
+    html += "<label for='ssid'>Network name (SSID)</label>";
+    html += "<input id='ssid' name='ssid' autocomplete='off' value='" + store.getWiFiSsid() + "' required>";
+    html += "<label for='password'>Password</label>";
+    html += "<input id='password' name='password' type='password' autocomplete='off'>";
+    html += "<button type='submit'>Save and Restart</button></form>";
 
     html += "</body></html>";
     return html;

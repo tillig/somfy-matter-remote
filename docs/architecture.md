@@ -51,10 +51,12 @@ New behavior should keep the ownership boundaries intact. Radio-facing work belo
 
 The classic ESP32 build of the Arduino Matter library does not enable Bluetooth (CHIPoBLE) commissioning, so the device cannot receive Wi-Fi credentials from the commissioning phone the way some Matter devices do. It must already be on Wi-Fi before Matter commissioning runs. The firmware therefore provisions Wi-Fi itself and branches at boot:
 
-- **Setup mode** (no stored credentials): `WiFiConnection` hosts an open access point named `Awning-Setup`, and `WebInterface` serves a setup form with a captive-portal DNS redirect. Matter and the radio are left down. When the form is saved, the credentials go to NVS and the device reboots.
+- **Setup mode** (no stored credentials): `WiFiConnection` hosts an open access point named `Awning-Setup-XXXX`, and `WebInterface` serves a setup form with a captive-portal DNS redirect. Matter and the radio are left down. When the form is saved, the credentials go to NVS and the device reboots.
 - **Station mode** (credentials present): `WiFiConnection` joins the home network, then the radio and Matter come up and the web interface serves a diagnostics dashboard. If the network is briefly unreachable the device stays in station mode and keeps retrying rather than dropping back into setup.
 
-A factory reset (long button press) clears both the Matter fabric and the stored Wi-Fi credentials, returning the device to setup mode on the next boot.
+The setup access point SSID and the mDNS hostname both carry a per-device suffix derived from the chip MAC (the `XXXX` above), so two units never collide on the setup network name or on `<hostname>.local`. In station mode `WiFiConnection` starts an mDNS responder for the dashboard; this is separate from the mDNS the Matter stack runs for commissioning discovery.
+
+Once on Wi-Fi, the dashboard also offers a `Change Wi-Fi` form. It reuses the same save-and-reboot path as the setup portal but leaves Matter commissioning intact, so updating a password does not force re-commissioning. A factory reset (long button press) is the heavier action: it clears both the Matter fabric and the stored Wi-Fi credentials, returning the device to setup mode on the next boot.
 
 ## Runtime Flow
 

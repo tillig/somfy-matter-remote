@@ -46,9 +46,17 @@ public:
     // Signal strength in dBm while connected as a station; 0 otherwise.
     int getRssi() const;
 
+    // Per-device names derived from the chip MAC, so two units do not collide.
+    // getHostname() is the mDNS name without the ".local" suffix; the setup AP
+    // SSID uses the same suffix. Both are stable across reboots.
+    String getHostname() const;
+    String getSetupApSsid() const;
+
 private:
     bool connectStation();
     void startSetupAp();
+    // Lowercase hex of the last two bytes of the chip MAC, for example "a4c1".
+    static String deviceSuffix();
 
     ConfigStore& store;
     Mode mode = Mode::Booting;
