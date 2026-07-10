@@ -4,19 +4,34 @@
 // and translates open/close/stop into Somfy RTS radio frames on 433.42 MHz via
 // a CC1101 transceiver. See docs/architecture.md for the layer design.
 //
-// Boot sequence: storage -> radio -> Matter, then loop() services Matter, the
-// serial command interface, and the panel-mount pairing button + status LED.
+// This ESP32 Matter build has no over-BLE commissioning, so the device must
+// join Wi-Fi itself before Google Home can commission it. Boot therefore
+// branches on stored credentials:
+//   - No credentials: host the "Awning-Setup" access point and serve the
+//     Wi-Fi setup portal. Matter does not start; the device reboots once
+//     credentials are saved.
+//   - Credentials present: join Wi-Fi, then bring up radio -> Matter, and
+//     serve the diagnostics/pairing dashboard. loop() services Matter, the
+//     web interface, the serial command interface, and the button and LED.
 
 #include <Arduino.h>
 
 #include "config.h"
 #include "matter/AwningCovering.h"
+#include "net/WiFiConnection.h"
+#include "net/WebInterface.h"
 #include "rf/SomfyController.h"
 #include "storage/ConfigStore.h"
 
 static ConfigStore configStore;
 static SomfyController somfy;
 static AwningCovering awning(somfy, configStore);
+static WiFiConnection network(configStore);
+static WebInterface web(network, configStore, awning);
+
+// True when the device booted without Wi-Fi credentials and is running the
+// setup portal instead of the normal Matter runtime.
+static bool setupMode = false;
 
 // --- Status LED --------------------------------------------------------------
 // Non-blocking blink patterns so loop() never stalls (Matter must keep running).
@@ -98,8 +113,12 @@ void handleMediumPress() {
 }
 
 void handleLongPress() {
-    Serial.println("[button] Long press -> Matter factory reset.");
+    Serial.println("[button] Long press -> factory reset (Matter + Wi-Fi credentials).");
     blinkReset();
+    // Clear the stored Wi-Fi credentials so the device reopens the setup access
+    // point on the next boot, then decommission Matter. decommission() may
+    // restart the device, so clear credentials first.
+    configStore.clearWiFiCredentials();
     awning.decommission();
 }
 
@@ -172,6 +191,16 @@ void setup() {
 
     configStore.begin();
 
+    // Bring up Wi-Fi first. Without stored credentials this enters SoftAP setup
+    // mode, in which Matter and the radio are left down until the user has
+    // provided a network and the device reboots.
+    if (network.begin() == WiFiConnection::Mode::SetupAp) {
+        setupMode = true;
+        web.begin();
+        Serial.println("[boot] Setup mode: join the access point and open the portal to configure Wi-Fi.");
+        return;
+    }
+
     if (somfy.begin()) {
         Serial.println("[boot] CC1101 initialized at 433.42 MHz (OOK).");
     } else {
@@ -179,12 +208,23 @@ void setup() {
     }
 
     awning.begin();
+    web.begin();
 
     Serial.println("[boot] Ready. Serial commands: Up, Down, My, Prog.");
 }
 
 void loop() {
+    // In setup mode only the web portal runs, until credentials are saved and
+    // the device reboots into station mode.
+    if (setupMode) {
+        web.loop();
+        serviceLed();
+        return;
+    }
+
+    network.loop();
     awning.loop();
+    web.loop();
     serviceSerial();
     serviceButton();
     serviceLed();

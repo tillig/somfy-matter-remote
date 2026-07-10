@@ -18,7 +18,7 @@ This guide explains how to build, validate, and extend the firmware. It is writt
 - **Platform:** the community [pioarduino platform](https://github.com/pioarduino/platform-espressif32), pinned in `platformio.ini`, which provides the Arduino-ESP32 3.x core (ESP-IDF 5.x) with the built-in `Matter` library.
 - **Board:** Elegoo ESP32 DevKit V1 (`ESP32-WROOM-32`, 4 MB flash).
 - **Tooling:** PlatformIO, `pre-commit`, `clang-format`, `markdownlint`, and `cppcheck`.
-- **Libraries:** [`Somfy_Remote_Lib`](https://github.com/Legion2/Somfy_Remote_Lib) for RTS frame generation and NVS rolling-code storage, and [`SmartRC-CC1101-Driver-Lib`](https://github.com/LSatan/SmartRC-CC1101-Driver-Lib) for the CC1101. The `Matter` library ships with the core, so it is not in `lib_deps`.
+- **Libraries:** [`Somfy_Remote_Lib`](https://github.com/Legion2/Somfy_Remote_Lib) for RTS frame generation and NVS rolling-code storage, and [`SmartRC-CC1101-Driver-Lib`](https://github.com/LSatan/SmartRC-CC1101-Driver-Lib) for the CC1101. The `Matter`, `WiFi`, `WebServer`, and `DNSServer` libraries all ship with the Arduino-ESP32 core and are not in `lib_deps`. `WiFi` and `WebServer` handle the station connection and HTTP surfaces; `DNSServer` powers the captive-portal DNS redirect during SoftAP provisioning.
 
 Install VS Code and the PlatformIO extension, clone the repository, and open the folder. PlatformIO resolves the platform and libraries on first build. The first Matter build is slow because the toolchain and framework are large.
 
@@ -26,7 +26,7 @@ Install VS Code and the PlatformIO extension, clone the repository, and open the
 
 The firmware is layered with strict boundaries, described in full in [the architecture reference](docs/architecture.md).
 
-1. **Layered decoupling.** The radio layer (`src/rf/`) never knows about Matter, the Matter layer (`src/matter/`) never touches CC1101 registers, and persistence lives in `src/storage/`. Keep new work inside these boundaries.
+1. **Layered decoupling.** The radio layer (`src/rf/`) never knows about Matter, the Matter layer (`src/matter/`) never touches CC1101 registers, the network layer (`src/net/`) handles Wi-Fi and HTTP surfaces, and persistence lives in `src/storage/`. Keep new work inside these boundaries.
 2. **Non-blocking loop.** `loop()` services Matter, serial, the button, and the LED on every pass. Do not add `delay()` or other blocking calls to the runtime path; Matter must keep running. The status LED uses a non-blocking blink state machine for this reason.
 3. **Persistence is sacred.** The Somfy rolling code must increment and persist on every transmission, or the motor rejects later commands. It is owned by the Somfy library's NVS storage in its own namespace. Firmware-owned state (the last-known position) lives in `ConfigStore` in a separate namespace.
 4. **Documentation first.** Any change to functionality, hardware, or tooling updates the appropriate doc before the change is considered done.
@@ -58,6 +58,7 @@ Then open the serial monitor at 115200 baud. The serial command interface mirror
 - **New radio behavior** (for example, exposing the Somfy `SunFlag` or `Flag` sensor commands) goes in `SomfyController` as a new intent method, then is surfaced upward. The `Command` enum from the Somfy library already defines the available buttons.
 - **New Matter behavior** goes in `AwningCovering`. The endpoint is a `MatterWindowCovering`; its callbacks (`onOpen`, `onClose`, `onStop`, `onGoToLiftPercentage`) return `bool` and must call into `SomfyController` rather than the radio directly. Report state back with `setLiftPercentage()` followed by `updateAccessory()`.
 - **New persisted state** goes in `ConfigStore` as a typed getter and setter backed by `Preferences`. Keep the NVS namespace and key names short to stay within the ESP32 key-length limit, and skip writes when the value is unchanged.
+- **New Wi-Fi or connectivity behavior** goes in `WiFiConnection` in `src/net/`. New HTTP endpoints or pages go in `WebInterface` in `src/net/`. Do not name anything `NetworkManager` in this codebase: the ESP32 Arduino core already defines a class of that name, and the name collision is a compile error.
 - **New pins, thresholds, or the direction default** go in `src/config.h`. Never change `REMOTE_ID` once a physical device is paired.
 - **Timed position estimation** is a natural future enhancement: calibrate full-travel time, store it in `ConfigStore`, and drive the motor for a proportional interval. Keep the current bang-bang behavior as the fallback.
 

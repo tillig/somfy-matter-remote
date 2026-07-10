@@ -76,7 +76,7 @@ The button action is chosen by how long it is held, and the LED confirms each ac
 | --- | --- | --- | --- |
 | Short press | Under 1 second | Somfy My (stop) | Single short blink |
 | Medium press | About 3 seconds | Somfy Prog (add-a-remote) | Rapid six-blink flurry |
-| Long press | About 10 seconds | Matter factory reset | Slow four-blink pattern |
+| Long press | About 10 seconds | Full factory reset: clears Wi-Fi credentials and decommissions Matter; device reopens `Awning-Setup` portal on next boot | Slow four-blink pattern |
 
 ## Wiring Diagram
 

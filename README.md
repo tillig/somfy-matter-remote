@@ -12,7 +12,6 @@ It emulates an additional Somfy remote. The existing physical Telis remote keeps
 - [Daily Use](#daily-use)
 - [Automations](#automations)
 - [Direction, Position, And Limitations](#direction-position-and-limitations)
-- [Repository Layout](#repository-layout)
 - [License](#license)
 
 ## How It Works
@@ -46,6 +45,8 @@ Matter is a local-network standard, so the controller commissions the ESP32 dire
 
 - Voice and app control of the awning through Google Home: open, close, and stop.
 - Automations through the controller: schedules, sunrise and sunset offsets, and more (see [Automations](#automations)).
+- A built-in Wi-Fi setup portal. On first boot the device opens an `Awning-Setup-XXXX` access point (with a per-device suffix so two units do not collide); connect to it and a captive portal walks through entering home Wi-Fi credentials. No app, no hub required.
+- A web diagnostics dashboard at `http://somfy-awning-XXXX.local` once the device is on the network. It shows the hostname, IP address, Wi-Fi SSID and signal strength, and Matter commissioning state, including the pairing code and a QR-code link before commissioning. It also has a `Change Wi-Fi` form for switching networks without a factory reset, which safely reverts to the current network if the new one cannot be reached.
 - A device that survives reboots. The Somfy rolling code and the last-known position persist in flash, so commands keep working and the tile stays sensible after a power cycle.
 - Local controls for setup and recovery: a serial command interface for the bench, plus a panel-mount pairing button and status LED for headless, in-the-box operation.
 - Optional multi-ecosystem control. The same device can be shared into Alexa, Apple Home, or SmartThings through Matter multi-admin.
@@ -71,18 +72,19 @@ For the full build, validation, and contribution workflow, see [`CONTRIBUTING.md
 
 ## First-Time Setup
 
-Set the device up in two stages. Prove the radio first, then add network control.
+Set the device up in three stages. Connect it to Wi-Fi first, prove the radio second, then add network control.
 
-1. Pair the virtual remote with the awning motor, using the physical Telis remote to enter programming mode. Follow [the Somfy pairing procedure](docs/pairing.md).
-2. Commission the device into Google Home over Wi-Fi, using the pairing code the firmware prints to the serial monitor on first boot. Follow [the Matter commissioning guide](docs/commissioning.md).
+1. Connect the device to your home Wi-Fi. On first boot, the device opens an `Awning-Setup-XXXX` access point (the suffix is unique per device). Connect a phone or laptop to that network, complete the portal, and the device stores credentials and reboots onto the home network.
+2. Pair the virtual remote with the awning motor, using the physical Telis remote to enter programming mode. Follow [the Somfy pairing procedure](docs/pairing.md). Radio pairing is independent of Wi-Fi and can be done over serial at any time.
+3. Commission the device into Google Home, using the pairing code shown on the diagnostics dashboard or in the serial monitor. Follow [the Matter commissioning guide](docs/commissioning.md).
 
-Doing radio pairing before Matter commissioning keeps the two concerns separate, so a problem is easy to localize.
+Keeping these stages separate means a problem in one is easy to localize without disturbing the others.
 
 ## Daily Use
 
 Once commissioned, control the awning by voice ("open the awning," "close the awning," "stop the awning") or from the Window Covering tile in the controller app.
 
-The panel-mount button provides local control and recovery without a laptop. A short press stops the awning, a medium press enters Somfy pairing mode, and a long press factory-resets Matter. The status LED confirms each action. See [the button reference](docs/pairing.md#button-reference) for the exact timings and blink patterns.
+The panel-mount button provides local control and recovery without a laptop. A short press stops the awning, a medium press enters Somfy pairing mode, and a long press performs a full factory reset: it clears the stored Wi-Fi credentials and decommissions Matter, returning the device to the `Awning-Setup` portal on next boot. The status LED confirms each action. See [the button reference](docs/pairing.md#button-reference) for the exact timings and blink patterns.
 
 ## Automations
 
@@ -102,14 +104,6 @@ Matter treats 0 percent lift as fully open (awning retracted) and 100 percent as
 Because Somfy RTS gives no position feedback, the device reports only the two end states. Asking for a specific percentage moves the awning to the nearer end stop rather than to a partial position.
 
 A do-it-yourself Matter device uses test credentials, so the controller shows an "uncertified device" warning during setup. This is expected and acceptable for personal use.
-
-## Repository Layout
-
-- `src/rf`: the radio layer, wrapping the CC1101 and the Somfy frame generator.
-- `src/matter`: the Matter Window Covering endpoint and command translation.
-- `src/storage`: persistent configuration in NVS.
-- `src/config.h`: the remote ID, pin assignments, direction flag, and button thresholds.
-- `docs/`: durable hardware, architecture, pairing, and commissioning references.
 
 ## License
 
