@@ -1,0 +1,49 @@
+name: Deploy Web Flasher
+
+# Publishes the browser-based firmware flasher (web-flasher/) to GitHub Pages.
+# The page uses ESP Web Tools and points at the firmware attached to the latest
+# GitHub Release, so it does not need rebuilding when firmware changes; it only
+# redeploys when the flasher page itself changes.
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "web-flasher/**"
+      - ".github/workflows/pages.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Allow one concurrent deployment, and do not cancel an in-progress one.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy to GitHub Pages
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload flasher as Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: web-flasher
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

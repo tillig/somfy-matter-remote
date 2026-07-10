@@ -9,6 +9,7 @@ This guide explains how to build, validate, and extend the firmware. It is writt
 - [Extending The Firmware](#extending-the-firmware)
 - [Hardware-Gated Work](#hardware-gated-work)
 - [Continuous Integration](#continuous-integration)
+- [Releases And The Web Flasher](#releases-and-the-web-flasher)
 - [Toolchain Gotchas](#toolchain-gotchas)
 - [Documentation Responsibilities](#documentation-responsibilities)
 
@@ -71,6 +72,22 @@ Radio pairing, Matter commissioning, direction confirmation, and range checks re
 GitHub Actions runs the same validation on pushes to `main`, `develop`, and `feature/**` branches, and on pull requests: `pre-commit`, then `platformio check`, then `platformio run`. The workflow caches the PlatformIO toolchain and framework, keyed on `platformio.ini` and `partitions.csv`, and allows a longer job timeout because the Matter build is large.
 
 If a `feature/**` branch already has an open pull request, the branch-push build is skipped and the pull-request build remains the authoritative result. No secrets are needed; nothing is uploaded to a cloud account, so the build itself is the validation. Use the `feature/<short-name>` branch naming convention.
+
+## Releases And The Web Flasher
+
+Consumers install the firmware from a browser with [ESP Web Tools](https://esphome.github.io/esp-web-tools/), so they never build from source. Two pieces support this.
+
+- The `release.yml` workflow runs on a version tag (for example `v1.0.0`), builds the firmware, and attaches the merged `firmware.factory.bin` to a GitHub Release. That image flashes at offset `0x0` and contains the bootloader, partition table, and application.
+- The `web-flasher/` directory holds the flasher page and its manifest, deployed to GitHub Pages by the `pages.yml` workflow. The manifest points at `releases/latest/download/firmware.factory.bin`, a stable URL that always resolves to the newest release, so the page never needs editing when firmware changes.
+
+To cut a release, tag a commit on `main` and push the tag:
+
+```bash
+git tag v1.0.0
+git push origin v1.0.0
+```
+
+The workflow builds and publishes the release; the flasher picks up the new binary automatically. GitHub Pages must be enabled once in the repository settings with the source set to GitHub Actions. When testing the flasher, use desktop Chrome or Edge, since Web Serial is not available in Firefox, Safari, or mobile browsers.
 
 ## Toolchain Gotchas
 
