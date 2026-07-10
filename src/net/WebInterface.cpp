@@ -69,8 +69,36 @@ void WebInterface::handleSave() {
         return;
     }
 
-    store.setWiFiCredentials(ssid, password);
-    server.send(200, "text/html", renderSetupPage("Saved. The device will restart and join \"" + ssid + "\"."));
+    if (net.getMode() == WiFiConnection::Mode::SetupAp) {
+        // First-time setup: the phone is on our access point, which stays up
+        // during the test, so we can validate the network live and only save on
+        // success. A typo just shows an error and lets the user try again.
+        if (net.testCredentials(ssid, password)) {
+            store.setWiFiCredentials(ssid, password);
+            server.send(200, "text/html", renderSetupPage("Connected to \"" + ssid + "\". Saving and restarting."));
+            rebootRequested = true;
+            rebootAt = millis() + REBOOT_DELAY_MS;
+        } else {
+            server.send(200,
+                        "text/html",
+                        renderSetupPage("Could not connect to \"" + ssid +
+                                        "\". Check the network name and password, then try again."));
+        }
+        return;
+    }
+
+    // Dashboard change while already connected: the browser reaches us over the
+    // current network, so we cannot report the result of a live test (testing
+    // means leaving that network). Store the new network as pending and reboot;
+    // the device tries it on boot and reverts to the current network if it
+    // fails, so a typo never strands the device.
+    store.setPendingWiFiCredentials(ssid, password);
+    server.send(
+        200,
+        "text/html",
+        renderDashboardMessagePage("Restarting to join \"" + ssid +
+                                   "\". If it cannot connect, the device returns to the current network automatically. "
+                                   "Reload this page in a moment."));
     rebootRequested = true;
     rebootAt = millis() + REBOOT_DELAY_MS;
 }
@@ -97,7 +125,8 @@ static const char* PAGE_STYLE = "<style>body{font-family:system-ui,sans-serif;ma
                                 "font-size:1rem;border:0;border-radius:6px;background:#3a7;color:#fff}"
                                 "table{border-collapse:collapse;margin-top:1rem;width:100%}"
                                 "td,th{text-align:left;padding:.4rem .6rem;border-bottom:1px solid #333}"
-                                "a{color:#6cf}.msg{margin-top:1rem;color:#7d7}</style>";
+                                "a{color:#6cf}.msg{margin-top:1rem;padding:.6rem .8rem;"
+                                "border-radius:6px;background:#223;border:1px solid #456}</style>";
 
 String WebInterface::renderSetupPage(const String& message) {
     String html = "<!DOCTYPE html><html><head><meta charset='utf-8'>";
@@ -116,6 +145,18 @@ String WebInterface::renderSetupPage(const String& message) {
     html += "<label for='password'>Password</label>";
     html += "<input id='password' name='password' type='password' autocomplete='off'>";
     html += "<button type='submit'>Save and Restart</button></form></body></html>";
+    return html;
+}
+
+String WebInterface::renderDashboardMessagePage(const String& message) {
+    String html = "<!DOCTYPE html><html><head><meta charset='utf-8'>";
+    html += "<meta name='viewport' content='width=device-width,initial-scale=1'>";
+    html += "<title>Somfy Awning</title>";
+    html += PAGE_STYLE;
+    html += "</head><body><h1>Somfy Awning</h1>";
+    html += "<p class='msg'>" + message + "</p>";
+    html += "<p><a href='/'>Back to dashboard</a></p>";
+    html += "</body></html>";
     return html;
 }
 
@@ -154,7 +195,9 @@ String WebInterface::renderDashboardPage() const {
     // reset). The SSID field is prefilled with the current network.
     html += "<h2>Change Wi-Fi</h2>";
     html += "<p>Update the network this device joins. It will restart to apply "
-            "the change; its Matter pairing is kept.</p>";
+            "the change, keeping its Matter pairing. If the new network cannot "
+            "be reached (for example a mistyped password), it automatically "
+            "returns to the current network, so a typo will not lock you out.</p>";
     html += "<form method='POST' action='/save'>";
     html += "<label for='ssid'>Network name (SSID)</label>";
     html += "<input id='ssid' name='ssid' autocomplete='off' value='" + store.getWiFiSsid() + "' required>";

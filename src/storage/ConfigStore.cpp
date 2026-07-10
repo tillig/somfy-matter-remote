@@ -9,6 +9,8 @@ static constexpr const char* CONFIG_NAMESPACE = "awningcfg";
 static constexpr const char* KEY_LIFT_PERCENT = "lift";
 static constexpr const char* KEY_WIFI_SSID = "ssid";
 static constexpr const char* KEY_WIFI_PASS = "pass";
+static constexpr const char* KEY_PEND_SSID = "pssid";
+static constexpr const char* KEY_PEND_PASS = "ppass";
 
 static Preferences preferences;
 
@@ -21,6 +23,8 @@ void ConfigStore::begin() {
     liftPercent = preferences.getUChar(KEY_LIFT_PERCENT, 0);
     wifiSsid = preferences.getString(KEY_WIFI_SSID, "");
     wifiPassword = preferences.getString(KEY_WIFI_PASS, "");
+    pendingSsid = preferences.getString(KEY_PEND_SSID, "");
+    pendingPassword = preferences.getString(KEY_PEND_PASS, "");
     preferences.end();
 }
 
@@ -65,8 +69,58 @@ void ConfigStore::setWiFiCredentials(const String& ssid, const String& password)
 void ConfigStore::clearWiFiCredentials() {
     wifiSsid = "";
     wifiPassword = "";
+    pendingSsid = "";
+    pendingPassword = "";
     preferences.begin(CONFIG_NAMESPACE, /*readOnly=*/false);
     preferences.remove(KEY_WIFI_SSID);
     preferences.remove(KEY_WIFI_PASS);
+    preferences.remove(KEY_PEND_SSID);
+    preferences.remove(KEY_PEND_PASS);
+    preferences.end();
+}
+
+bool ConfigStore::hasPendingWiFiCredentials() const {
+    return pendingSsid.length() > 0;
+}
+
+String ConfigStore::getPendingWiFiSsid() const {
+    return pendingSsid;
+}
+
+String ConfigStore::getPendingWiFiPassword() const {
+    return pendingPassword;
+}
+
+void ConfigStore::setPendingWiFiCredentials(const String& ssid, const String& password) {
+    pendingSsid = ssid;
+    pendingPassword = password;
+    preferences.begin(CONFIG_NAMESPACE, /*readOnly=*/false);
+    preferences.putString(KEY_PEND_SSID, pendingSsid);
+    preferences.putString(KEY_PEND_PASS, pendingPassword);
+    preferences.end();
+}
+
+void ConfigStore::clearPendingWiFiCredentials() {
+    pendingSsid = "";
+    pendingPassword = "";
+    preferences.begin(CONFIG_NAMESPACE, /*readOnly=*/false);
+    preferences.remove(KEY_PEND_SSID);
+    preferences.remove(KEY_PEND_PASS);
+    preferences.end();
+}
+
+void ConfigStore::promotePendingWiFiCredentials() {
+    if (pendingSsid.length() == 0) {
+        return;
+    }
+    wifiSsid = pendingSsid;
+    wifiPassword = pendingPassword;
+    pendingSsid = "";
+    pendingPassword = "";
+    preferences.begin(CONFIG_NAMESPACE, /*readOnly=*/false);
+    preferences.putString(KEY_WIFI_SSID, wifiSsid);
+    preferences.putString(KEY_WIFI_PASS, wifiPassword);
+    preferences.remove(KEY_PEND_SSID);
+    preferences.remove(KEY_PEND_PASS);
     preferences.end();
 }

@@ -26,7 +26,19 @@ public:
     // Decide the mode and bring up Wi-Fi. In Station mode this blocks up to
     // WIFI_CONNECT_TIMEOUT_MS waiting for a connection. Returns the resulting
     // mode.
+    //
+    // Boot honors pending credentials submitted from the dashboard: if a
+    // pending network is stored it is tried first, promoted to active on
+    // success, or discarded (falling back to the active network) on failure, so
+    // a dashboard typo never strands the device.
     Mode begin();
+
+    // Test a set of credentials by connecting to them while the setup access
+    // point stays up (AP+STA mode), so the caller's browser stays reachable.
+    // Returns true if the join succeeds within WIFI_CONNECT_TIMEOUT_MS. Used by
+    // the setup portal to validate a network before saving it. On failure the
+    // station side is disconnected but the access point is left running.
+    bool testCredentials(const String& ssid, const String& password);
 
     // Service reconnection while in Station mode. Call from loop(). No-op in
     // SetupAp mode.
@@ -53,8 +65,11 @@ public:
     String getSetupApSsid() const;
 
 private:
-    bool connectStation();
+    // Connect as a station to the given credentials, blocking up to
+    // WIFI_CONNECT_TIMEOUT_MS. Starts the mDNS responder on success.
+    bool connectStation(const String& ssid, const String& password);
     void startSetupAp();
+    void startMdns();
     // Lowercase hex of the last two bytes of the chip MAC, for example "a4c1".
     static String deviceSuffix();
 

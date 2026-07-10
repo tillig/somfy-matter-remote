@@ -36,12 +36,26 @@ WiFiConnection::Mode WiFiConnection::begin() {
     WiFi.persistent(false); // credentials live in ConfigStore, not the WiFi lib's own NVS
     WiFi.setHostname(getHostname().c_str());
 
-    if (store.hasWiFiCredentials() && connectStation()) {
-        mode = Mode::Station;
-    } else if (store.hasWiFiCredentials()) {
-        // Credentials exist but the network was unreachable this boot. Stay in
-        // station mode and let loop() keep retrying rather than dropping into
-        // setup, so a temporary router outage does not strand the device.
+    // A pending network was submitted from the dashboard. Try it first; promote
+    // it on success, or discard it and fall back to the active network on
+    // failure, so a dashboard typo cannot strand the device.
+    if (store.hasPendingWiFiCredentials()) {
+        Serial.println("[net] Trying pending Wi-Fi credentials from the dashboard.");
+        if (connectStation(store.getPendingWiFiSsid(), store.getPendingWiFiPassword())) {
+            store.promotePendingWiFiCredentials();
+            Serial.println("[net] Pending network connected and promoted to active.");
+            mode = Mode::Station;
+            return mode;
+        }
+        store.clearPendingWiFiCredentials();
+        Serial.println("[net] Pending network failed; reverting to the previous network.");
+    }
+
+    if (store.hasWiFiCredentials()) {
+        // Try the active credentials. Whether or not this boot connects, stay in
+        // station mode and let loop() keep retrying, so a temporary router
+        // outage does not strand the device or drop it out of Google Home.
+        connectStation(store.getWiFiSsid(), store.getWiFiPassword());
         mode = Mode::Station;
     } else {
         startSetupAp();
@@ -50,11 +64,11 @@ WiFiConnection::Mode WiFiConnection::begin() {
     return mode;
 }
 
-bool WiFiConnection::connectStation() {
+bool WiFiConnection::connectStation(const String& ssid, const String& password) {
     WiFi.mode(WIFI_STA);
     Serial.print("[net] Connecting to Wi-Fi SSID: ");
-    Serial.println(store.getWiFiSsid());
-    WiFi.begin(store.getWiFiSsid().c_str(), store.getWiFiPassword().c_str());
+    Serial.println(ssid);
+    WiFi.begin(ssid.c_str(), password.c_str());
 
     const uint32_t start = millis();
     while (WiFi.status() != WL_CONNECTED && (millis() - start) < WIFI_CONNECT_TIMEOUT_MS) {
@@ -64,20 +78,51 @@ bool WiFiConnection::connectStation() {
     if (WiFi.status() == WL_CONNECTED) {
         Serial.print("[net] Connected. IP address: ");
         Serial.println(WiFi.localIP());
-        // Publish an mDNS responder so the dashboard is reachable by name; the
-        // Matter stack runs its own commissioning mDNS separately from this.
-        if (MDNS.begin(getHostname().c_str())) {
-            MDNS.addService("http", "tcp", 80);
-            Serial.print("[net] Dashboard at http://");
-            Serial.print(getHostname());
-            Serial.println(".local");
-        } else {
-            Serial.println("[net] Warning: mDNS responder failed to start; use the IP address.");
-        }
+        startMdns();
         return true;
     }
     Serial.println("[net] Wi-Fi connection timed out; will keep retrying.");
     return false;
+}
+
+void WiFiConnection::startMdns() {
+    // Publish an mDNS responder so the dashboard is reachable by name; the
+    // Matter stack runs its own commissioning mDNS separately from this.
+    if (MDNS.begin(getHostname().c_str())) {
+        MDNS.addService("http", "tcp", 80);
+        Serial.print("[net] Dashboard at http://");
+        Serial.print(getHostname());
+        Serial.println(".local");
+    } else {
+        Serial.println("[net] Warning: mDNS responder failed to start; use the IP address.");
+    }
+}
+
+// cppcheck-suppress functionStatic ; part of the WiFiConnection instance API,
+// even though it only drives the WiFi singleton.
+bool WiFiConnection::testCredentials(const String& ssid, const String& password) {
+    // Keep the setup access point up while testing (AP+STA) so the caller's
+    // browser stays connected to receive the result.
+    WiFi.mode(WIFI_AP_STA);
+    Serial.print("[net] Testing Wi-Fi SSID: ");
+    Serial.println(ssid);
+    WiFi.begin(ssid.c_str(), password.c_str());
+
+    const uint32_t start = millis();
+    while (WiFi.status() != WL_CONNECTED && (millis() - start) < WIFI_CONNECT_TIMEOUT_MS) {
+        delay(250);
+    }
+
+    const bool ok = WiFi.status() == WL_CONNECTED;
+    if (ok) {
+        Serial.println("[net] Test connection succeeded.");
+    } else {
+        // Drop the failed station attempt but leave the access point running so
+        // the portal stays reachable for another try.
+        Serial.println("[net] Test connection failed.");
+        WiFi.disconnect(/*wifioff=*/false);
+    }
+    return ok;
 }
 
 void WiFiConnection::startSetupAp() {

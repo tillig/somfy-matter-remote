@@ -25,9 +25,9 @@ On first boot, with no Wi-Fi credentials stored, the device hosts its own open W
 1. Power on the device. From a phone or laptop, join the open Wi-Fi network named `Awning-Setup-XXXX`, where `XXXX` is a per-device suffix (so two units never present the same name).
 2. A setup page should open automatically (a captive portal). If it does not, browse to `http://192.168.4.1`.
 3. Enter your home Wi-Fi network name and password, then choose `Save and Restart`.
-4. The device stores the credentials, reboots, and joins your Wi-Fi. The serial log prints the IP address it received.
+4. The device tests the connection while keeping the setup network up, so the page can report the result. If it connects, the page confirms and the device saves the credentials and reboots onto your Wi-Fi. If it cannot connect (for example a mistyped password), the page says so and lets you correct the entry and try again. Credentials are only saved after a successful test, so a typo is never stored.
 
-The credentials are stored in NVS and reused on later boots, so this is a one-time step. To change networks or update the password later, use the `Change Wi-Fi` form on [the web dashboard](#the-web-dashboard); that keeps the Matter commissioning intact. A factory reset (long button press) also clears the credentials and reopens the setup access point, but it additionally decommissions Matter, so prefer the dashboard for a simple network change.
+The credentials are stored in NVS and reused on later boots, so this is a one-time step. To change networks or update the password later, use the `Change Wi-Fi` form on [the web dashboard](#the-web-dashboard); that keeps the Matter commissioning intact and reverts to the current network if the new one cannot be reached. A factory reset (long button press) also clears the credentials and reopens the setup access point, but it additionally decommissions Matter, so prefer the dashboard for a simple network change.
 
 ## Before You Commission
 
@@ -56,7 +56,7 @@ Because a Somfy awning gives no position feedback, the tile reports only the two
 
 ## The Web Dashboard
 
-Once the device is on Wi-Fi, it serves a small status page at `http://somfy-awning-XXXX.local` (where `XXXX` is the per-device suffix), or at the IP address shown in the serial log. The exact hostname is printed to serial on connect and shown on the page itself. The dashboard reports the hostname, IP address, Wi-Fi signal strength, and Matter commissioning state. Before commissioning it also shows the manual pairing code and a link to the QR code, so the pairing information is available without the serial monitor. After commissioning it points to multi-admin sharing for adding other ecosystems. The page also has a `Change Wi-Fi` form for moving the device to another network without a factory reset.
+Once the device is on Wi-Fi, it serves a small status page at `http://somfy-awning-XXXX.local` (where `XXXX` is the per-device suffix), or at the IP address shown in the serial log. The exact hostname is printed to serial on connect and shown on the page itself. The dashboard reports the hostname, IP address, Wi-Fi signal strength, and Matter commissioning state. Before commissioning it also shows the manual pairing code and a link to the QR code, so the pairing information is available without the serial monitor. After commissioning it points to multi-admin sharing for adding other ecosystems. The page also has a `Change Wi-Fi` form for moving the device to another network without a factory reset; if the new network cannot be reached, the device automatically returns to the current one, so a mistyped password will not lock it out.
 
 ## Reconnection And Recovery
 
@@ -71,6 +71,8 @@ Matter supports multi-admin, so the same physical device can be shared into Alex
 ## Troubleshooting
 
 If Google Home cannot find the device, confirm the phone and the ESP32 are on the same Wi-Fi network and subnet, and that the network allows the IPv6 and mDNS traffic Matter relies on. Many mesh and guest networks block this.
+
+If the device does not join Wi-Fi during setup, the setup page reports the failed test and the credentials are not saved; correct the network name or password and try again. If a dashboard `Change Wi-Fi` attempt targets an unreachable network, the device reverts to the current network on its own, so no recovery step is needed.
 
 If commissioning starts but fails partway, power-cycle the ESP32 and retry from the serial-printed pairing code. If it still fails, factory-reset Matter with the long button press and try once more.
 

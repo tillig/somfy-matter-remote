@@ -40,8 +40,10 @@ private:
     void handleRoot();
     void handleSave();
     void handleNotFound();
-    // The setup page depends only on its argument, not on device state.
+    // The setup and message pages depend only on their argument, not on device
+    // state.
     static String renderSetupPage(const String& message);
+    static String renderDashboardMessagePage(const String& message);
     String renderDashboardPage() const;
 
     WiFiConnection& net;
