@@ -12,7 +12,6 @@ It emulates an additional Somfy remote. The existing physical Telis remote keeps
 - [Daily Use](#daily-use)
 - [Automations](#automations)
 - [Direction, Position, And Limitations](#direction-position-and-limitations)
-- [Repository Layout](#repository-layout)
 - [License](#license)
 
 ## How It Works
@@ -105,15 +104,6 @@ Matter treats 0 percent lift as fully open (awning retracted) and 100 percent as
 Because Somfy RTS gives no position feedback, the device reports only the two end states. Asking for a specific percentage moves the awning to the nearer end stop rather than to a partial position.
 
 A do-it-yourself Matter device uses test credentials, so the controller shows an "uncertified device" warning during setup. This is expected and acceptable for personal use.
-
-## Repository Layout
-
-- `src/rf`: the radio layer, wrapping the CC1101 and the Somfy frame generator.
-- `src/matter`: the Matter Window Covering endpoint and command translation.
-- `src/net`: the network layer — Wi-Fi station and SoftAP management (`WiFiConnection`) and the HTTP setup portal and diagnostics dashboard (`WebInterface`).
-- `src/storage`: persistent configuration in NVS, including Wi-Fi credentials and the last-known lift position.
-- `src/config.h`: the remote ID, pin assignments, direction flag, button thresholds, AP SSID, and device hostname.
-- `docs/`: durable hardware, architecture, pairing, and commissioning references.
 
 ## License
 
