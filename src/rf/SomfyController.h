@@ -33,6 +33,11 @@ public:
     // testing mirrors the Somfy library examples exactly.
     void send(Command command);
 
+    // Read the next rolling code from NVS without incrementing it, for
+    // diagnostics only. Returns 0 if it has not been stored yet. This must not
+    // be used in the transmit path; sending is what advances the code.
+    uint16_t peekRollingCode() const;
+
 private:
     bool radioReady = false;
 };
