@@ -1,6 +1,8 @@
 {
   "recommendations": [
+    "Jason2866.esp-decoder",
     "editorconfig.editorconfig",
+    "pioarduino.pioarduino-ide",
     "platformio.platformio-ide"
   ],
   "unwantedRecommendations": [
