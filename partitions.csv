@@ -1,0 +1,7 @@
+# Name,   Type, SubType, Offset,   Size,     Flags
+# Matter is large: a single ~3.2 MB app partition, no OTA slot, on a 4 MB module.
+# NVS must survive for both Matter fabric data and the Somfy rolling code.
+nvs,      data, nvs,     0x9000,   0x6000,
+phy_init, data, phy,     0xf000,   0x1000,
+factory,  app,  factory, 0x10000,  0x330000,
+coredump, data, coredump,0x340000, 0x10000,
