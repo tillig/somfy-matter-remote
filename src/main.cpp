@@ -163,18 +163,100 @@ void serviceButton() {
 }
 
 // --- Serial command interface ------------------------------------------------
-// Mirrors the Somfy library examples: type Up, Down, My, or Prog at 115200 baud
-// to transmit that command. Invaluable for radio bring-up before Matter.
+// Type a command at 115200 baud. The radio commands (Up, Down, My, Prog) mirror
+// the Somfy library examples and are invaluable for radio bring-up before
+// Matter. The `help` and `status` commands aid diagnostics, especially when the
+// device is on the bench during hardware bring-up.
+
+const char* wifiModeName(WiFiConnection::Mode mode) {
+    switch (mode) {
+        case WiFiConnection::Mode::Station:
+            return "station";
+        case WiFiConnection::Mode::SetupAp:
+            return "setup access point";
+        default:
+            return "booting";
+    }
+}
+
+void printHelp() {
+    Serial.println(F("[serial] Commands:"));
+    Serial.println(F("  Up      - retract the awning (Somfy Up)"));
+    Serial.println(F("  Down    - extend the awning (Somfy Down)"));
+    Serial.println(F("  My      - stop / favorite position (Somfy My)"));
+    Serial.println(F("  Prog    - enter add-a-remote pairing mode (Somfy Prog)"));
+    Serial.println(F("  status  - print radio, network, and Matter state"));
+    Serial.println(F("  help    - show this list"));
+}
+
+void printStatus() {
+    Serial.println(F("[status] Somfy Awning Matter Remote"));
+
+    // Radio.
+    Serial.printf(
+        "  Radio:      %s at %.2f MHz\n", somfy.isRadioReady() ? "CC1101 ready" : "CC1101 NOT detected", FREQUENCY_MHZ);
+    Serial.printf("  Remote ID:  0x%06X\n", REMOTE_ID);
+    const uint16_t code = somfy.peekRollingCode();
+    if (code == 0) {
+        Serial.println(F("  Rolling code: not yet sent (no commands transmitted)"));
+    } else {
+        Serial.printf("  Rolling code: %u (next to send)\n", code);
+    }
+
+    // Network.
+    Serial.printf("  Wi-Fi mode: %s\n", wifiModeName(network.getMode()));
+    if (network.getMode() == WiFiConnection::Mode::SetupAp) {
+        Serial.printf("  Setup SSID: %s\n", network.getSetupApSsid().c_str());
+        Serial.printf("  Setup IP:   %s\n", network.getIP().toString().c_str());
+    } else if (network.isStationConnected()) {
+        Serial.printf("  Connected:  yes (%d dBm)\n", network.getRssi());
+        Serial.printf("  Hostname:   %s.local\n", network.getHostname().c_str());
+        Serial.printf("  IP address: %s\n", network.getIP().toString().c_str());
+    } else {
+        Serial.println(F("  Connected:  no (retrying)"));
+    }
+
+    // Matter.
+    Serial.printf("  Matter:     %s\n", awning.isCommissioned() ? "commissioned" : "not commissioned");
+    Serial.printf("  Direction:  INVERT_DIRECTION=%d\n", INVERT_DIRECTION);
+}
+
+// Recognize only the radio commands we intend to support. getSomfyCommand()
+// defaults unknown input to Command::My, which would silently transmit a stop;
+// gating on this table prevents a typo (or `help`) from keying the radio.
+bool isKnownRadioCommand(const String& token) {
+    return token.equalsIgnoreCase("Up") || token.equalsIgnoreCase("Down") || token.equalsIgnoreCase("My") ||
+           token.equalsIgnoreCase("Prog");
+}
 
 void serviceSerial() {
     if (Serial.available() <= 0) {
         return;
     }
-    const String line = Serial.readStringUntil('\n');
-    const Command command = getSomfyCommand(line);
-    Serial.print("[serial] Sending Somfy command from input: ");
+    String line = Serial.readStringUntil('\n');
+    line.trim(); // drop CR and stray whitespace from terminals
+    if (line.length() == 0) {
+        return;
+    }
+
+    if (line.equalsIgnoreCase("help") || line == "?") {
+        printHelp();
+        return;
+    }
+    if (line.equalsIgnoreCase("status")) {
+        printStatus();
+        return;
+    }
+    if (!isKnownRadioCommand(line)) {
+        Serial.print(F("[serial] Unknown command: "));
+        Serial.println(line);
+        Serial.println(F("[serial] Type 'help' for the command list."));
+        return;
+    }
+
+    Serial.print(F("[serial] Sending Somfy command: "));
     Serial.println(line);
-    somfy.send(command);
+    somfy.send(getSomfyCommand(line));
 }
 
 } // namespace
@@ -210,7 +292,7 @@ void setup() {
     awning.begin();
     web.begin();
 
-    Serial.println("[boot] Ready. Serial commands: Up, Down, My, Prog.");
+    Serial.println("[boot] Ready. Type 'help' for serial commands.");
 }
 
 void loop() {

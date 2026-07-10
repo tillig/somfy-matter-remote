@@ -1,6 +1,7 @@
 # Hardware Reference
 
 - [Canonical Build](#canonical-build)
+- [Ordering Checklist](#ordering-checklist)
 - [Bill Of Materials](#bill-of-materials)
 - [Power](#power)
 - [CC1101 Radio Wiring](#cc1101-radio-wiring)
@@ -21,6 +22,17 @@ This project is built around one canonical hardware configuration:
 - One 5V USB power supply into the ESP32 USB port.
 
 The ESP32 sets up the CC1101 over SPI once, then bit-bangs the Somfy waveform onto the `GDO0` data line while the CC1101 keys the 433.42 MHz carrier to match. This is a transmit-only design; there is no radio feedback from the motor.
+
+## Ordering Checklist
+
+Most first-build failures trace back to buying the wrong radio. Confirm these before ordering, then use the full [Bill Of Materials](#bill-of-materials) for the complete list.
+
+- Buy a **CC1101** module, not a fixed-frequency 433 MHz transmitter such as the FS1000A. North American Somfy RTS is 433.42 MHz, and only a synthesizer radio like the CC1101 can be tuned there in firmware. A fixed 433.92 MHz board is about 500 kHz off and generally will not key the motor. This is the single most important choice.
+- Get the **433 MHz variant** of the CC1101 (the chip also ships in 868 and 915 MHz module builds). The Ebyte `E07-M1101D` is a known-good, antenna-equipped option.
+- Confirm the antenna suits 433 MHz: the module's supplied whip or SMA antenna, or about 17.3 cm of solid-core wire for a quarter-wave. Do not transmit without an antenna attached.
+- Confirm the ESP32 is an `ESP32-WROOM-32` with **4 MB of flash**, the practical minimum for Matter. The Elegoo DevKit V1 qualifies.
+- Everything on the CC1101 side is **3.3V logic**. The ESP32 is not 5V tolerant, and the CC1101 is powered from the ESP32 `3V3` pin, so no level shifting or separate supply is needed.
+- The pushbutton and LED are **panel-mount** so they remain usable once the device is sealed in an enclosure; the tiny onboard BOOT button is deliberately not used at runtime.
 
 ## Bill Of Materials
 

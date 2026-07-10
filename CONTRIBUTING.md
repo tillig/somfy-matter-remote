@@ -52,7 +52,7 @@ Flash a connected ESP32 with:
 platformio run --target upload
 ```
 
-Then open the serial monitor at 115200 baud. The serial command interface mirrors the Somfy library examples: type `Up`, `Down`, `My`, or `Prog` and press enter to transmit that command. This is the fastest way to bring up and debug the radio before Matter is involved. On first boot, when the device is not yet commissioned, the firmware also prints the Matter manual pairing code and QR-code URL.
+Then open the serial monitor at 115200 baud. The serial command interface mirrors the Somfy library examples: type `Up`, `Down`, `My`, or `Prog` and press enter to transmit that command. This is the fastest way to bring up and debug the radio before Matter is involved. Type `help` for the command list, or `status` for a diagnostics dump covering radio state (including the CC1101 detection result and the current rolling code), Wi-Fi mode and address, and Matter commissioning state, which is useful during hardware bring-up. Unknown input is rejected rather than transmitted, so a typo cannot accidentally key the radio. On first boot, when the device is not yet commissioned, the firmware also prints the Matter manual pairing code and QR-code URL.
 
 ## Extending The Firmware
 

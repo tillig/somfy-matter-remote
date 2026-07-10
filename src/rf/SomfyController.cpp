@@ -2,6 +2,7 @@
 
 #include <ELECHOUSE_CC1101_SRC_DRV.h>
 #include <NVSRollingCodeStorage.h>
+#include <Preferences.h>
 
 #include "../config.h"
 
@@ -54,4 +55,17 @@ void SomfyController::stop() {
 
 void SomfyController::pair() {
     send(Command::Prog);
+}
+
+// cppcheck-suppress functionStatic ; part of the SomfyController instance API,
+// even though the rolling code lives in a shared NVS namespace.
+uint16_t SomfyController::peekRollingCode() const {
+    // Read the value the Somfy library stores, without the increment that
+    // nextCode() performs. The library seeds it to 1 on first use, so a stored
+    // value of 0 (the default when the key is absent) means "not yet sent".
+    Preferences prefs;
+    prefs.begin(NVS_ROLLING_CODE_NAMESPACE, /*readOnly=*/true);
+    const uint16_t code = prefs.getUShort(NVS_ROLLING_CODE_KEY, 0);
+    prefs.end();
+    return code;
 }

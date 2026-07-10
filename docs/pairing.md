@@ -50,7 +50,7 @@ The onboard BOOT button is deliberately not used at runtime, because it ends up 
 
 ## Troubleshooting
 
-If the awning jogs on Prog but then ignores Up and Down, the rolling code is almost certainly not persisting. Confirm the NVS storage is working and that the storage key length is within the ESP32 NVS limits; the Somfy library documentation warns about long keys, which is why the namespace and key in `src/config.h` are kept short.
+If the awning jogs on Prog but then ignores Up and Down, the rolling code is almost certainly not persisting. Type `status` in the serial monitor to read the current rolling code, send a command, and check `status` again; the value should increase each time and survive a reboot. If it does not, confirm the NVS storage is working and that the storage key length is within the ESP32 NVS limits; the Somfy library documentation warns about long keys, which is why the namespace and key in `src/config.h` are kept short.
 
 If nothing happens on Prog at all, re-check the frequency and wiring. The single most common first-build failure is transmitting on 433.92 MHz instead of the North American Somfy 433.42 MHz, but this firmware sets 433.42 MHz in `src/config.h`, so a no-response result more likely points to the `GDO0` data line, the antenna, or 3V3 power to the CC1101.
 
