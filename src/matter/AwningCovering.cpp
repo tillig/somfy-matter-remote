@@ -53,11 +53,12 @@ void AwningCovering::begin() {
         return true;
     });
 
-    wasCommissioned = Matter.isDeviceCommissioned();
-
+    // Matter.begin() must come last, after the endpoint and its callbacks are
+    // set up. Commissioning state is only meaningful once it has run.
     Matter.begin();
 
-    if (Matter.isDeviceCommissioned()) {
+    wasCommissioned = Matter.isDeviceCommissioned();
+    if (wasCommissioned) {
         Serial.println("[matter] Already commissioned; joining existing fabric.");
     } else {
         Serial.println("[matter] Not commissioned. Add this device in Google Home:");
@@ -92,9 +93,11 @@ void AwningCovering::decommission() {
 }
 
 void AwningCovering::moveToEndStop(uint8_t liftPercent) {
-    // Report the new end-stop position back to Matter controllers and persist
-    // it so the tile shows a sensible state after a reboot.
+    // Report the new end-stop position back to Matter controllers by updating
+    // the current-position attribute, and persist it so the tile shows a
+    // sensible state after a reboot. There is no motor feedback, so the awning
+    // is assumed to have reached the end stop.
     covering.setLiftPercentage(liftPercent);
-    covering.updateAccessory();
+    covering.setOperationalState(MatterWindowCovering::LIFT, MatterWindowCovering::STALL);
     store.setLiftPercent(liftPercent);
 }

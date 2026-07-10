@@ -73,10 +73,7 @@ If a `feature/**` branch already has an open pull request, the branch-push build
 
 ## Toolchain Gotchas
 
-Two environment issues can block a first local build. Both are environmental, not code problems.
-
-- **Static analysis and package headers.** `platformio.ini` sets `check_skip_packages = yes`. Without it, `cppcheck` tries to parse the toolchain's libstdc++ headers, cannot evaluate their `__has_builtin()` use, and aborts the entire check. Keep this setting.
-- **TLS interception.** On a network with a TLS-inspecting proxy (for example, Zscaler), PlatformIO's framework download can fail with a certificate-verification error, because the proxy re-signs the connection with a corporate root that is not in the bundled `certifi` store. The fix is to make the Python environment trust the system roots, for example by appending the macOS system and root keychains to the `certifi` `cacert.pem` that PlatformIO's Python uses. This is a local environment fix and is not committed.
+`platformio.ini` sets `check_skip_packages = yes`. Without it, `cppcheck` tries to parse the toolchain's libstdc++ headers, cannot evaluate their `__has_builtin()` use, and aborts the entire check. Keep this setting.
 
 ## Documentation Responsibilities
 
