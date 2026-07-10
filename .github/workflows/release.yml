@@ -1,0 +1,57 @@
+name: Release
+
+# Publishes a prebuilt firmware image so consumers can flash the device without
+# building from source. Triggered by pushing a version tag such as v1.0.0. The
+# job builds the firmware and attaches the merged factory image to a GitHub
+# Release, which the browser flasher (web-flasher/) then serves via the stable
+# releases/latest/download URL.
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build and publish firmware
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.x"
+
+      - name: Cache PlatformIO
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.platformio/.cache
+            .pio
+          key: ${{ runner.os }}-platformio-${{ hashFiles('platformio.ini', 'partitions.csv') }}
+          restore-keys: |
+            ${{ runner.os }}-platformio-
+
+      - name: Install PlatformIO Core
+        run: pip install --upgrade platformio
+
+      - name: Build firmware
+        run: pio run
+
+      - name: Stage release binary
+        # The merged factory image flashes at offset 0x0 and is what the browser
+        # flasher and esptool both expect.
+        run: cp .pio/build/esp32dev/firmware.factory.bin firmware.factory.bin
+
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: firmware.factory.bin
+          generate_release_notes: true

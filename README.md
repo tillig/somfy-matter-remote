@@ -7,11 +7,12 @@ It emulates an additional Somfy remote. The existing physical Telis remote keeps
 - [How It Works](#how-it-works)
 - [What You Get](#what-you-get)
 - [Hardware](#hardware)
-- [Build And Flash](#build-and-flash)
+- [Install The Firmware](#install-the-firmware)
 - [First-Time Setup](#first-time-setup)
 - [Daily Use](#daily-use)
 - [Automations](#automations)
 - [Direction, Position, And Limitations](#direction-position-and-limitations)
+- [Building From Source](#building-from-source)
 - [License](#license)
 
 ## How It Works
@@ -57,18 +58,16 @@ The canonical build is an Elegoo ESP32 DevKit V1 (`ESP32-WROOM-32`, 4 MB flash) 
 
 Refer to [the hardware reference](docs/hardware.md) for the full bill of materials, the wiring table and diagram, and the pre-power validation checklist.
 
-## Build And Flash
+## Install The Firmware
 
-This project uses [PlatformIO](https://platformio.org/) with the community [pioarduino platform](https://github.com/pioarduino/platform-espressif32), which provides the Arduino-ESP32 3.x core and its built-in Matter library.
+The easiest way to install the firmware is the browser-based flasher. It writes a prebuilt image to the ESP32 straight from a web page, with no build tools or command line.
 
-1. Install [VS Code](https://code.visualstudio.com/) and the [PlatformIO extension](https://marketplace.visualstudio.com/items?itemName=platformio.platformio-ide).
-2. Clone this repository and open the folder in VS Code.
-3. Let PlatformIO resolve the platform and libraries. The first Matter build is slow because the toolchain and framework are large.
-4. Build the firmware with `platformio run`.
-5. Connect the ESP32 by USB and flash it with `platformio run --target upload`.
-6. Open the serial monitor at 115200 baud to watch boot logs and use the serial command interface.
+1. Connect the ESP32 to a computer with a USB data cable.
+2. Open the [web flasher](https://tillig.github.io/somfy-matter-remote/) in desktop Chrome or Edge. It relies on Web Serial, which Firefox, Safari, and mobile browsers do not support.
+3. Click `Connect and Install` and choose the ESP32's serial port when prompted.
+4. Wait for the install to finish, then continue with [First-Time Setup](#first-time-setup).
 
-For the full build, validation, and contribution workflow, see [`CONTRIBUTING.md`](CONTRIBUTING.md).
+The flasher installs the image from the most recent [release](https://github.com/tillig/somfy-matter-remote/releases). To build and flash from source instead, see [Building From Source](#building-from-source).
 
 ## First-Time Setup
 
@@ -104,6 +103,21 @@ Matter treats 0 percent lift as fully open (awning retracted) and 100 percent as
 Because Somfy RTS gives no position feedback, the device reports only the two end states. Asking for a specific percentage moves the awning to the nearer end stop rather than to a partial position.
 
 A do-it-yourself Matter device uses test credentials, so the controller shows an "uncertified device" warning during setup. This is expected and acceptable for personal use.
+
+## Building From Source
+
+Building from source is only needed to modify the firmware or to change compile-time options such as `INVERT_DIRECTION`. For a normal install, use the [web flasher](#install-the-firmware) instead.
+
+This project uses [PlatformIO](https://platformio.org/) with the community [pioarduino platform](https://github.com/pioarduino/platform-espressif32), which provides the Arduino-ESP32 3.x core and its built-in Matter library.
+
+1. Install [VS Code](https://code.visualstudio.com/) and the [PlatformIO extension](https://marketplace.visualstudio.com/items?itemName=platformio.platformio-ide).
+2. Clone this repository and open the folder in VS Code.
+3. Let PlatformIO resolve the platform and libraries. The first Matter build is slow because the toolchain and framework are large.
+4. Build the firmware with `platformio run`.
+5. Connect the ESP32 by USB and flash it with `platformio run --target upload`.
+6. Open the serial monitor at 115200 baud to watch boot logs and use the serial command interface.
+
+For the full build, validation, and contribution workflow, see [`CONTRIBUTING.md`](CONTRIBUTING.md).
 
 ## License
 

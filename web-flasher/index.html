@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Flash Somfy Awning Matter Remote</title>
+    <!--
+      Browser-based flasher for the Somfy Awning Matter Remote, built on ESP Web
+      Tools. It reads firmware-manifest.json, which points at the firmware
+      binary published with each GitHub Release. Served from GitHub Pages; no
+      build tools or command line are needed on the user's machine.
+
+      Web Serial is required, so this works in Chrome, Edge, and other
+      Chromium-based desktop browsers. It does not work in Firefox or Safari, or
+      on iOS.
+    -->
+    <script
+      type="module"
+      src="https://unpkg.com/esp-web-tools@10/dist/web/install-button.js?module"
+    ></script>
+    <style>
+      body {
+        font-family: system-ui, sans-serif;
+        max-width: 40rem;
+        margin: 0 auto;
+        padding: 2rem 1.5rem;
+        line-height: 1.5;
+        color: #1a1a1a;
+      }
+      h1 {
+        font-size: 1.5rem;
+      }
+      code {
+        background: #f0f0f0;
+        padding: 0.1rem 0.3rem;
+        border-radius: 4px;
+      }
+      .note {
+        background: #fff6e0;
+        border: 1px solid #e6cf8a;
+        border-radius: 6px;
+        padding: 0.8rem 1rem;
+        margin: 1.5rem 0;
+      }
+      esp-web-install-button {
+        --esp-tools-button-color: #fff;
+        --esp-tools-button-text-color: #0b6;
+      }
+      ol {
+        padding-left: 1.2rem;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Flash the Somfy Awning Matter Remote</h1>
+    <p>
+      This installs the firmware onto an Elegoo ESP32 DevKit V1 directly from your browser. No build tools or command
+      line are needed.
+    </p>
+
+    <div class="note">
+      Use a desktop version of Chrome or Edge. This page relies on Web Serial, which Firefox, Safari, and mobile
+      browsers do not support.
+    </div>
+
+    <ol>
+      <li>Connect the ESP32 to this computer with a USB data cable.</li>
+      <li>Click <strong>Connect and Install</strong> below.</li>
+      <li>Choose the ESP32's serial port when the browser asks.</li>
+      <li>Wait for the install to finish, then follow the on-device Wi-Fi setup.</li>
+    </ol>
+
+    <p>
+      <esp-web-install-button manifest="./firmware-manifest.json">
+        <button slot="activate">Connect and Install</button>
+        <span slot="unsupported">Your browser does not support Web Serial. Use desktop Chrome or Edge.</span>
+        <span slot="not-allowed">Serial access was blocked. Allow it and reload the page.</span>
+      </esp-web-install-button>
+    </p>
+
+    <p>
+      After flashing, the device hosts an <code>Awning-Setup-XXXX</code> Wi-Fi network for first-time configuration. See
+      the
+      <a href="https://github.com/tillig/somfy-matter-remote/blob/main/docs/commissioning.md">commissioning guide</a>
+      for the full setup walkthrough, and the
+      <a href="https://github.com/tillig/somfy-matter-remote#readme">project README</a> for an overview.
+    </p>
+  </body>
+</html>
