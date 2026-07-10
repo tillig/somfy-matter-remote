@@ -44,7 +44,7 @@ The panel-mount button on GPIO32 covers installation and recovery without a lapt
 | --- | --- | --- | --- |
 | Short press | Under 1 second | My (stop) | Single short blink |
 | Medium press | About 3 seconds | Prog (enter add-a-remote mode) | Rapid six-blink flurry |
-| Long press | About 10 seconds | Matter factory reset and decommission | Slow four-blink pattern |
+| Long press | About 10 seconds | Full factory reset: decommissions Matter and clears stored Wi-Fi credentials; device reopens `Awning-Setup` portal on next boot | Slow four-blink pattern |
 
 The onboard BOOT button is deliberately not used at runtime, because it ends up sealed inside the enclosure.
 

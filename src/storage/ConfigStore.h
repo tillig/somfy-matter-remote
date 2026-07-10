@@ -24,6 +24,19 @@ public:
     uint8_t getLiftPercent() const;
     void setLiftPercent(uint8_t percent);
 
+    // Wi-Fi station credentials. This ESP32 Matter build has no over-BLE
+    // commissioning, so the firmware must join Wi-Fi itself before Google Home
+    // can commission it. Credentials are entered through the SoftAP setup
+    // portal and stored here, never hardcoded in source. The getters return
+    // cached values and never touch flash.
+    bool hasWiFiCredentials() const;
+    String getWiFiSsid() const;
+    String getWiFiPassword() const;
+    void setWiFiCredentials(const String& ssid, const String& password);
+    void clearWiFiCredentials();
+
 private:
     uint8_t liftPercent = 0;
+    String wifiSsid;
+    String wifiPassword;
 };

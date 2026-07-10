@@ -53,3 +53,16 @@ static constexpr uint32_t PRESS_LONG_MS = 10000; // ~10s  -> decommission
 
 // Button debounce interval in milliseconds.
 static constexpr uint32_t BUTTON_DEBOUNCE_MS = 30;
+
+// Network and web interface. This ESP32 Matter build has no over-BLE
+// commissioning, so the firmware joins Wi-Fi itself using credentials entered
+// through the SoftAP setup portal. When no credentials are stored, the device
+// hosts an open access point with this name so a phone or laptop can browse to
+// the setup form.
+static constexpr const char* SETUP_AP_SSID = "Awning-Setup";
+// mDNS hostname, so the dashboard is reachable at http://<name>.local once the
+// device is on the network.
+static constexpr const char* DEVICE_HOSTNAME = "somfy-awning";
+// How long to wait for a Wi-Fi station connection before giving up on a boot
+// attempt, in milliseconds.
+static constexpr uint32_t WIFI_CONNECT_TIMEOUT_MS = 20000;

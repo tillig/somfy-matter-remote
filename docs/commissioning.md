@@ -1,33 +1,48 @@
 # Matter Commissioning
 
 - [What Commissioning Does](#what-commissioning-does)
-- [Before You Start](#before-you-start)
+- [Connect The Device To Wi-Fi First](#connect-the-device-to-wi-fi-first)
+- [Before You Commission](#before-you-commission)
 - [Add The Device To Google Home](#add-the-device-to-google-home)
 - [Test Voice And App Control](#test-voice-and-app-control)
+- [The Web Dashboard](#the-web-dashboard)
 - [Reconnection And Recovery](#reconnection-and-recovery)
 - [Multi-Admin Sharing](#multi-admin-sharing)
 - [Troubleshooting](#troubleshooting)
 
 ## What Commissioning Does
 
-Commissioning joins the ESP32 to a Matter fabric so a controller such as Google Home can adopt it as a Window Covering and talk to it directly over the local network. It is done once, over Wi-Fi. There is no hub, driver, or cloud account in the path: the controller commissions the device directly, then communicates peer-to-peer.
+Commissioning joins the ESP32 to a Matter fabric so a controller such as Google Home can adopt it as a Window Covering and talk to it directly over the local network. There is no hub, driver, or cloud account in the path: the controller commissions the device directly, then communicates peer-to-peer.
+
+The order matters on this hardware. The classic ESP32 build of the Arduino Matter library does not include Bluetooth (CHIPoBLE) commissioning, so the device cannot receive Wi-Fi credentials from the phone during pairing the way some Matter devices do. Instead, the device must already be on Wi-Fi before commissioning runs. Connecting to Wi-Fi is therefore a separate first step, described next.
 
 This is hardware-gated work. It cannot be validated without the physical device on the network.
 
-## Before You Start
+## Connect The Device To Wi-Fi First
+
+On first boot, with no Wi-Fi credentials stored, the device hosts its own open Wi-Fi access point and setup page.
+
+1. Power on the device. From a phone or laptop, join the Wi-Fi network named `Awning-Setup`.
+2. A setup page should open automatically (a captive portal). If it does not, browse to `http://192.168.4.1`.
+3. Enter your home Wi-Fi network name and password, then choose `Save and Restart`.
+4. The device stores the credentials, reboots, and joins your Wi-Fi. The serial log prints the IP address it received.
+
+The credentials are stored in NVS and reused on later boots, so this is a one-time step. To change networks later, use the long button press to factory-reset, which also clears Wi-Fi credentials and reopens the setup access point.
+
+## Before You Commission
 
 1. Complete [the Somfy pairing procedure](pairing.md) so radio control is already proven. Commissioning only adds the network control surface; it does not help debug the radio.
-2. Make sure the phone running the controller app is on the same Wi-Fi network the ESP32 will join.
-3. Open the serial monitor at 115200 baud. On first boot, when the device is not yet commissioned, the firmware prints the Matter manual pairing code and the onboarding QR-code URL. Note these.
+2. Confirm the device is on your Wi-Fi (see the previous section), and that the phone running Google Home is on the same network.
+3. Get the Matter pairing information. On first boot before commissioning, the firmware prints the manual pairing code and the onboarding QR-code URL to the serial monitor. Once the device is on Wi-Fi, the same information is also available on [the web dashboard](#the-web-dashboard).
 
 The firmware uses the Arduino Matter library's built-in test credentials. That is expected for a do-it-yourself device and is why the controller shows an uncertified-device warning during setup.
 
 ## Add The Device To Google Home
 
 1. In the Google Home app, choose to add a device, then choose the Matter path (labeled "Matter-enabled device," or scan the QR code).
-2. Scan the QR code from the onboarding URL printed to the serial monitor, or enter the manual pairing code.
+2. Scan the QR code from the onboarding URL, or enter the manual pairing code.
 3. Accept the "uncertified device" warning. This appears for do-it-yourself Matter devices and is not a failure.
-4. Let Google Home commission the device, join it to Wi-Fi, and add it as a window covering. Assign it a room and a speakable name, for example "Patio Awning."
+4. Let Google Home commission the device and add it as a window covering. Because the device is already on Wi-Fi, this completes over the local network. Assign it a room and a speakable name, for example "Patio Awning."
 
 The serial log prints a commissioning-complete line when the fabric join succeeds.
 
@@ -39,11 +54,15 @@ The serial log prints a commissioning-complete line when the fabric join succeed
 
 Because a Somfy awning gives no position feedback, the tile reports only the two end states. Dragging the slider or asking for a percentage moves the awning to the nearer end stop rather than to a partial position.
 
+## The Web Dashboard
+
+Once the device is on Wi-Fi, it serves a small status page at `http://somfy-awning.local` (or at the IP address shown in the serial log). The dashboard reports the hostname, IP address, Wi-Fi signal strength, and Matter commissioning state. Before commissioning it also shows the manual pairing code and a link to the QR code, so the pairing information is available without the serial monitor. After commissioning it points to multi-admin sharing for adding other ecosystems.
+
 ## Reconnection And Recovery
 
-After a power cycle, the device rejoins Wi-Fi and its Matter fabric automatically; it does not need re-commissioning. The last-known position is restored from NVS so the tile shows a sensible state immediately.
+After a power cycle, the device rejoins Wi-Fi and its Matter fabric automatically; it does not need re-commissioning. If the network is briefly unreachable it keeps retrying rather than dropping back into setup mode. The last-known position is restored from NVS so the tile shows a sensible state immediately.
 
-To move the device to a different network or controller, or to recover from a bad state, factory-reset Matter with a long press (about 10 seconds) of the panel-mount button. That decommissions the device and clears the fabric data so it can be commissioned again. The Somfy pairing and rolling code are unaffected by a Matter reset; they live in separate storage.
+To move the device to a different Wi-Fi network or controller, or to recover from a bad state, do a factory reset with a long press (about 10 seconds) of the panel-mount button. That decommissions Matter, clears the fabric data, and clears the stored Wi-Fi credentials, so the device reopens the `Awning-Setup` access point on the next boot for fresh setup. The Somfy pairing and rolling code are unaffected; they live in separate storage.
 
 ## Multi-Admin Sharing
 
