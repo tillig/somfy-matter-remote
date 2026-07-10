@@ -63,7 +63,7 @@ Refer to [the hardware reference](docs/hardware.md) for the full bill of materia
 The easiest way to install the firmware is the browser-based flasher. It writes a prebuilt image to the ESP32 straight from a web page, with no build tools or command line.
 
 1. Connect the ESP32 to a computer with a USB data cable.
-2. Open the [web flasher](https://tillig.github.io/somfy-matter-remote/) in desktop Chrome or Edge. It relies on Web Serial, which Firefox, Safari, and mobile browsers do not support.
+2. Open the [web flasher](https://paraesthesia.com/somfy-matter-remote/) in desktop Chrome or Edge. It relies on Web Serial, which Firefox, Safari, and mobile browsers do not support.
 3. Click `Connect and Install` and choose the ESP32's serial port when prompted.
 4. Wait for the install to finish, then continue with [First-Time Setup](#first-time-setup).
 
