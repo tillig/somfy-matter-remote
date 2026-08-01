@@ -69,7 +69,8 @@ The CC1101 connects over the standard VSPI bus (four pins) plus one data line an
 | `D23` | 23 | `MOSI` (SI) | SPI data to radio |
 | `D5` | 5 | `CSN` (CS) | SPI chip select |
 | `D2` | 2 | `GDO0` | Somfy data output, on-off-keying input to radio |
-| `D4` | 4 | `GDO2` | Optional, leave unconnected for transmit-only |
+
+Leave the module's `GDO2` pin unconnected. On the CC1101 both `GDO0` and `GDO2` are software-configurable status outputs, useful mainly for receiving (signalling events such as a received packet to an interrupt pin). This design is transmit-only, so the firmware configures `GDO0` alone and never reads `GDO2`. Wiring it would reserve a GPIO for nothing. It is only worth revisiting if receive support is ever added, for example to sniff the physical remote's frames.
 
 ## Button And LED Wiring
 
@@ -100,7 +101,6 @@ flowchart LR
       esp32_3v3["3V3"]
       esp32_gnd["GND"]
       esp32_d2["D2 (GDO0 data)"]
-      esp32_d4["D4 (GDO2, optional)"]
       esp32_d5["D5 (CSN)"]
       esp32_d18["D18 (SCK)"]
       esp32_d19["D19 (MISO)"]
@@ -116,7 +116,6 @@ flowchart LR
       cc_mosi["MOSI / SI"]
       cc_csn["CSN / CS"]
       cc_gdo0["GDO0"]
-      cc_gdo2["GDO2"]
       cc_ant["Antenna 17.3 cm"]
     end
 
@@ -127,7 +126,6 @@ flowchart LR
     esp32_d23 --> cc_mosi
     esp32_d5 --> cc_csn
     esp32_d2 --> cc_gdo0
-    esp32_d4 --> cc_gdo2
     cc_gdo0 --- cc_ant
 
     button["Pairing Button"]
