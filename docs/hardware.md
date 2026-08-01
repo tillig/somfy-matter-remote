@@ -162,21 +162,25 @@ flowchart LR
     linkStyle 5 stroke:#f80,stroke-width:2px
     linkStyle 6 stroke:#a5f,stroke-width:2px
     linkStyle 7 stroke:#2c2,stroke-width:2px
+    linkStyle 9 stroke:#ccc,stroke-width:2px
+    linkStyle 11 stroke:#dd0,stroke-width:2px
 ```
 
 Wire colors used for this build. The diagram edges above are tinted to match, and the colors are a convenience only: the pin numbers and signal names are what matter when wiring.
 
-| Wire color | CC1101 pin | Signal | ESP32 |
+| Wire color | ESP32 | Destination | Signal |
 | --- | --- | --- | --- |
-| Red | 2 | `VCC` | `3V3` |
-| Dark gray or black | 1 | `GND` | `GND` |
-| Blue | 5 | `SCK` | `D18` |
-| Brown | 7 | `MISO` | `D19` |
-| Orange | 6 | `MOSI` | `D23` |
-| Purple | 4 | `CSN` | `D5` |
-| Green | 3 | `GDO0` | `D2` |
+| Red | `3V3` | CC1101 pin 2 | `VCC` |
+| Dark gray or black | `GND` | CC1101 pin 1 | `GND` |
+| Blue | `D18` | CC1101 pin 5 | `SCK` |
+| Brown | `D19` | CC1101 pin 7 | `MISO` |
+| Orange | `D23` | CC1101 pin 6 | `MOSI` |
+| Purple | `D5` | CC1101 pin 4 | `CSN` |
+| Green | `D2` | CC1101 pin 3 | `GDO0`, the Somfy data line |
+| Light gray | `D32` | Pushbutton leg A | Pairing button input |
+| Yellow | `D33` | LED anode via resistor | Status LED |
 
-Keep red and black reserved for power so anything red is unambiguously `VCC`. The button and LED wiring shares the `GND` color; those connections are shown at the bottom of the diagram.
+Keep red and black reserved for power so anything red is unambiguously `VCC`. The button and LED both return to `GND`, and those return legs share the ground wire color.
 
 ## Wiring Validation
 
