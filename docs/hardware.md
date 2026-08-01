@@ -151,7 +151,32 @@ flowchart LR
     button --> esp32_gnd
     esp32_d33 --> led
     led --> esp32_gnd
+
+    %% Edge colors match the as-built wire colors listed below the diagram.
+    %% linkStyle indices are positional, counted from 0 in the order the edges
+    %% are declared above, so adding or reordering an edge shifts them.
+    linkStyle 1 stroke:#d22,stroke-width:2px
+    linkStyle 2,10,12 stroke:#888,stroke-width:2px
+    linkStyle 3 stroke:#38f,stroke-width:2px
+    linkStyle 4 stroke:#a63,stroke-width:2px
+    linkStyle 5 stroke:#f80,stroke-width:2px
+    linkStyle 6 stroke:#a5f,stroke-width:2px
+    linkStyle 7 stroke:#2c2,stroke-width:2px
 ```
+
+Wire colors used for this build. The diagram edges above are tinted to match, and the colors are a convenience only: the pin numbers and signal names are what matter when wiring.
+
+| Wire color | CC1101 pin | Signal | ESP32 |
+| --- | --- | --- | --- |
+| Red | 2 | `VCC` | `3V3` |
+| Dark gray or black | 1 | `GND` | `GND` |
+| Blue | 5 | `SCK` | `D18` |
+| Brown | 7 | `MISO` | `D19` |
+| Orange | 6 | `MOSI` | `D23` |
+| Purple | 4 | `CSN` | `D5` |
+| Green | 3 | `GDO0` | `D2` |
+
+Keep red and black reserved for power so anything red is unambiguously `VCC`. The button and LED wiring shares the `GND` color; those connections are shown at the bottom of the diagram.
 
 ## Wiring Validation
 
