@@ -16,7 +16,7 @@
 This project is built around one canonical hardware configuration:
 
 - Elegoo ESP32 DevKit V1 (`ESP32-WROOM-32`), confirmed to have 4 MB of flash.
-- CC1101 433 MHz transceiver module, tuned in firmware to 433.42 MHz.
+- CC1101 433 MHz transceiver module, tuned in firmware to 433.42 MHz. This build uses the Ebyte `E07-M1101D-SMA`.
 - Quarter-wave antenna (about 17.3 cm of solid-core wire) or the module's supplied whip or SMA antenna.
 - One panel-mount momentary pushbutton and one panel-mount status LED with a series resistor.
 - One 5V USB power supply into the ESP32 USB port.
@@ -28,7 +28,7 @@ The ESP32 sets up the CC1101 over SPI once, then bit-bangs the Somfy waveform on
 Most first-build failures trace back to buying the wrong radio. Confirm these before ordering, then use the full [Bill Of Materials](#bill-of-materials) for the complete list.
 
 - Buy a **CC1101** module, not a fixed-frequency 433 MHz transmitter such as the FS1000A. North American Somfy RTS is 433.42 MHz, and only a synthesizer radio like the CC1101 can be tuned there in firmware. A fixed 433.92 MHz board is about 500 kHz off and generally will not key the motor. This is the single most important choice.
-- Get the **433 MHz variant** of the CC1101 (the chip also ships in 868 and 915 MHz module builds). The Ebyte `E07-M1101D` is a known-good, antenna-equipped option.
+- Get the **433 MHz variant** of the CC1101 (the chip also ships in 868 and 915 MHz module builds). The Ebyte `E07-M1101D-SMA` is the known-good module this build uses: 433 MHz, 10 dBm, SPI, 3.3V logic, with an SMA antenna connector.
 - Confirm the antenna suits 433 MHz: the module's supplied whip or SMA antenna, or about 17.3 cm of solid-core wire for a quarter-wave. Do not transmit without an antenna attached.
 - Confirm the ESP32 is an `ESP32-WROOM-32` with **4 MB of flash**, the practical minimum for Matter. The Elegoo DevKit V1 qualifies.
 - Everything on the CC1101 side is **3.3V logic**. The ESP32 is not 5V tolerant, and the CC1101 is powered from the ESP32 `3V3` pin, so no level shifting or separate supply is needed.
@@ -41,7 +41,7 @@ The links are examples of where to source each part. Verify the exact module bef
 | Qty | Part | Purpose | Notes |
 | --- | --- | --- | --- |
 | 1 | Elegoo ESP32 DevKit V1 (`ESP32-WROOM-32`) | Main controller, Wi-Fi, Matter | Confirm 4 MB flash. 3.3V logic, not 5V tolerant. |
-| 1 | CC1101 433 MHz transceiver module | Tunable 433.42 MHz radio | Must be the 433 MHz variant. The Ebyte `E07-M1101D` is a good antenna-equipped option. Power from ESP32 `3V3`, never 5V. |
+| 1 | CC1101 433 MHz transceiver module | Tunable 433.42 MHz radio | Must be the 433 MHz variant. This build uses the Ebyte `E07-M1101D-SMA`, whose pins are numbered rather than named; see [CC1101 Radio Wiring](#cc1101-radio-wiring). Power from ESP32 `3V3`, never 5V. |
 | 1 | 433 MHz antenna or 17.3 cm solid-core wire | Improves range | A quarter-wave whip at 433.42 MHz is about 17.3 cm. Many modules include a spring or SMA antenna. |
 | 1 | 5V USB power supply | Power input | Any phone-style USB supply into the ESP32 USB port. |
 | 1 | Panel-mount momentary pushbutton (normally open, 12 mm) | Pairing and reset button | Mounts through the enclosure wall so it stays pressable once the box is closed. Any SPST normally-open momentary switch works. |
@@ -60,16 +60,34 @@ The device runs from one 5V USB supply plugged into the ESP32. The CC1101 draws 
 
 The CC1101 connects over the standard VSPI bus (four pins) plus one data line and power. The data line is the key detail: the Somfy library toggles a single GPIO very fast, and that GPIO must be wired to the CC1101 `GDO0` pin, which the radio is configured to transmit in on-off-keying mode.
 
+Many CC1101 modules, including the Ebyte `E07-M1101D-SMA` used for this build, silkscreen only the pin numbers rather than signal names. The `CC1101 Pin` column below gives the number alongside the signal so the module can be wired without a datasheet in hand.
+
 | ESP32 Pin | GPIO | CC1101 Pin | Purpose |
 | --- | --- | --- | --- |
-| `3V3` | 3.3V | `VCC` | Radio power (do not use 5V) |
-| `GND` | GND | `GND` | Shared ground |
-| `D18` | 18 | `SCK` | SPI clock |
-| `D19` | 19 | `MISO` (SO) | SPI data from radio |
-| `D23` | 23 | `MOSI` (SI) | SPI data to radio |
-| `D5` | 5 | `CSN` (CS) | SPI chip select |
-| `D2` | 2 | `GDO0` | Somfy data output, on-off-keying input to radio |
-| `D4` | 4 | `GDO2` | Optional, leave unconnected for transmit-only |
+| `3V3` | 3.3V | 2 (`VCC`) | Radio power (do not use 5V) |
+| `GND` | GND | 1 (`GND`) | Shared ground |
+| `D18` | 18 | 5 (`SCK`) | SPI clock |
+| `D19` | 19 | 7 (`MISO`, also `GDO1`) | SPI data from radio |
+| `D23` | 23 | 6 (`MOSI`) | SPI data to radio |
+| `D5` | 5 | 4 (`CSN`) | SPI chip select |
+| `D2` | 2 | 3 (`GDO0`) | Somfy data output, on-off-keying input to radio |
+
+The full `E07-M1101D-SMA` pinout, for reference while wiring:
+
+| Pin | Signal | Used here |
+| --- | --- | --- |
+| 1 | `GND` | Yes |
+| 2 | `VCC` | Yes |
+| 3 | `GDO0` | Yes, the Somfy data line |
+| 4 | `CSN` | Yes |
+| 5 | `SCK` | Yes |
+| 6 | `MOSI` | Yes |
+| 7 | `MISO` / `GDO1` | Yes, as `MISO` |
+| 8 | `GDO2` | No, leave unconnected |
+
+Confirm the numbering against your own module's silkscreen or datasheet before wiring, since pin order varies between CC1101 breakout designs. Pin 7 serves double duty as `MISO` and `GDO1`; this design uses it only as the SPI data line from the radio.
+
+Leave pin 8 (`GDO2`) unconnected. On the CC1101 both `GDO0` and `GDO2` are software-configurable status outputs, useful mainly for receiving (signalling events such as a received packet to an interrupt pin). This design is transmit-only, so the firmware configures `GDO0` alone and never reads `GDO2`. Wiring it would reserve a GPIO for nothing. It is only worth revisiting if receive support is ever added, for example to sniff the physical remote's frames.
 
 ## Button And LED Wiring
 
@@ -100,7 +118,6 @@ flowchart LR
       esp32_3v3["3V3"]
       esp32_gnd["GND"]
       esp32_d2["D2 (GDO0 data)"]
-      esp32_d4["D4 (GDO2, optional)"]
       esp32_d5["D5 (CSN)"]
       esp32_d18["D18 (SCK)"]
       esp32_d19["D19 (MISO)"]
@@ -108,15 +125,14 @@ flowchart LR
       esp32_d32["D32 (button)"]
       esp32_d33["D33 (LED)"]
     end
-    subgraph cc1101["CC1101 433 MHz Module"]
-      cc_vcc["VCC 3.3V"]
-      cc_gnd["GND"]
-      cc_sck["SCK"]
-      cc_miso["MISO / SO"]
-      cc_mosi["MOSI / SI"]
-      cc_csn["CSN / CS"]
-      cc_gdo0["GDO0"]
-      cc_gdo2["GDO2"]
+    subgraph cc1101["CC1101 433 MHz Module (pin numbers)"]
+      cc_gnd["1 GND"]
+      cc_vcc["2 VCC 3.3V"]
+      cc_gdo0["3 GDO0"]
+      cc_csn["4 CSN"]
+      cc_sck["5 SCK"]
+      cc_mosi["6 MOSI"]
+      cc_miso["7 MISO"]
       cc_ant["Antenna 17.3 cm"]
     end
 
@@ -127,7 +143,6 @@ flowchart LR
     esp32_d23 --> cc_mosi
     esp32_d5 --> cc_csn
     esp32_d2 --> cc_gdo0
-    esp32_d4 --> cc_gdo2
     cc_gdo0 --- cc_ant
 
     button["Pairing Button"]
@@ -142,12 +157,13 @@ flowchart LR
 
 With USB disconnected, confirm the wiring before first power-on:
 
-1. Confirm CC1101 `VCC` goes to ESP32 `3V3` and never to `5V`.
-2. Confirm all grounds are common.
-3. Confirm the SPI pins map exactly: 18 to `SCK`, 19 to `MISO`, 23 to `MOSI`, 5 to `CSN`.
-4. Confirm GPIO2 goes to `GDO0`, the data line the Somfy code toggles.
-5. Confirm the pairing button bridges GPIO32 to ground: with the internal pull-up it reads HIGH when released and LOW when pressed.
-6. Confirm the antenna is attached before transmitting. Transmitting without an antenna can damage the radio.
+1. Confirm CC1101 `VCC` (pin 2) goes to ESP32 `3V3` and never to `5V`.
+2. Confirm all grounds are common, including CC1101 `GND` (pin 1).
+3. Confirm the SPI pins map exactly: GPIO18 to `SCK` (pin 5), GPIO19 to `MISO` (pin 7), GPIO23 to `MOSI` (pin 6), GPIO5 to `CSN` (pin 4).
+4. Confirm GPIO2 goes to `GDO0` (pin 3), the data line the Somfy code toggles.
+5. Confirm `GDO2` (pin 8) is left unconnected.
+6. Confirm the pairing button bridges GPIO32 to ground: with the internal pull-up it reads HIGH when released and LOW when pressed.
+7. Confirm the antenna is attached before transmitting. Transmitting without an antenna can damage the radio.
 
 Then power the ESP32 by USB and open the serial monitor at 115200 baud. A healthy boot logs that the CC1101 initialized at 433.42 MHz. If it logs that the CC1101 was not detected, re-check the SPI wiring and 3V3 power before going further.
 

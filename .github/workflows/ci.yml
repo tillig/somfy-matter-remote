@@ -74,6 +74,12 @@ jobs:
         with:
           python-version: "3.x"
 
+      # The json-sort hook is a Node package installed from a local path by
+      # pre-commit. Without install-links, npm symlinks it instead of copying,
+      # and the json-sort executable does not end up on PATH.
+      - name: Configure npm for local package installs
+        run: npm config set install-links true
+
       - name: Run pre-commit
         uses: pre-commit/action@v3.0.1
 
