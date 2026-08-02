@@ -17,12 +17,18 @@ static constexpr uint32_t REMOTE_ID = 0x100001;
 // required rather than a fixed-frequency transmitter.
 static constexpr float FREQUENCY_MHZ = 433.42f;
 
-// CC1101 wiring (VSPI). The emitter pin is the data line the Somfy library
-// bit-bangs; it must be physically wired to the CC1101 GDO0 pin.
+// CC1101 wiring. The emitter pin is the data line the Somfy library bit-bangs;
+// it must be physically wired to the CC1101 GDO0 pin.
+//
+// The SPI pins are passed to the driver explicitly, and the ESP32 routes SPI
+// through its GPIO matrix, so these are not fixed to the default VSPI pins.
+// Any free bidirectional GPIO works; MOSI uses 21 rather than the default 23
+// purely because it is easier to reach on the board. Avoid the input-only pins
+// (34 to 39), the strapping pins, and 6 to 11, which are wired to flash.
 static constexpr uint8_t EMITTER_GPIO = 2; // -> CC1101 GDO0 (OOK data out)
 static constexpr uint8_t CC1101_SCK = 18;  // -> CC1101 SCK
 static constexpr uint8_t CC1101_MISO = 19; // -> CC1101 MISO / SO
-static constexpr uint8_t CC1101_MOSI = 23; // -> CC1101 MOSI / SI
+static constexpr uint8_t CC1101_MOSI = 21; // -> CC1101 MOSI / SI
 static constexpr uint8_t CC1101_CSN = 5;   // -> CC1101 CSN / CS
 
 // Dedicated panel-mount controls. The onboard BOOT button is deliberately not

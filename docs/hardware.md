@@ -68,7 +68,7 @@ Many CC1101 modules, including the Ebyte `E07-M1101D-SMA` used for this build, s
 | `GND` | GND | 1 (`GND`) | Shared ground |
 | `D18` | 18 | 5 (`SCK`) | SPI clock |
 | `D19` | 19 | 7 (`MISO`, also `GDO1`) | SPI data from radio |
-| `D23` | 23 | 6 (`MOSI`) | SPI data to radio |
+| `D21` | 21 | 6 (`MOSI`) | SPI data to radio |
 | `D5` | 5 | 4 (`CSN`) | SPI chip select |
 | `D2` | 2 | 3 (`GDO0`) | Somfy data output, on-off-keying input to radio |
 
@@ -121,7 +121,7 @@ flowchart LR
       esp32_d5["D5 (CSN)"]
       esp32_d18["D18 (SCK)"]
       esp32_d19["D19 (MISO)"]
-      esp32_d23["D23 (MOSI)"]
+      esp32_d21["D21 (MOSI)"]
       esp32_d32["D32 (button)"]
       esp32_d33["D33 (LED)"]
     end
@@ -140,7 +140,7 @@ flowchart LR
     esp32_gnd --> cc_gnd
     esp32_d18 --> cc_sck
     esp32_d19 --> cc_miso
-    esp32_d23 --> cc_mosi
+    esp32_d21 --> cc_mosi
     esp32_d5 --> cc_csn
     esp32_d2 --> cc_gdo0
     cc_gdo0 --- cc_ant
@@ -174,7 +174,7 @@ Wire colors used for this build. The diagram edges above are tinted to match, an
 | Dark gray or black | `GND` | CC1101 pin 1 | `GND` |
 | Blue | `D18` | CC1101 pin 5 | `SCK` |
 | Brown | `D19` | CC1101 pin 7 | `MISO` |
-| Orange | `D23` | CC1101 pin 6 | `MOSI` |
+| Orange | `D21` | CC1101 pin 6 | `MOSI` |
 | Purple | `D5` | CC1101 pin 4 | `CSN` |
 | Green | `D2` | CC1101 pin 3 | `GDO0`, the Somfy data line |
 | Light gray | `D32` | Pushbutton leg A | Pairing button input |
@@ -188,7 +188,7 @@ With USB disconnected, confirm the wiring before first power-on:
 
 1. Confirm CC1101 `VCC` (pin 2) goes to ESP32 `3V3` and never to `5V`.
 2. Confirm all grounds are common, including CC1101 `GND` (pin 1).
-3. Confirm the SPI pins map exactly: GPIO18 to `SCK` (pin 5), GPIO19 to `MISO` (pin 7), GPIO23 to `MOSI` (pin 6), GPIO5 to `CSN` (pin 4).
+3. Confirm the SPI pins map exactly: GPIO18 to `SCK` (pin 5), GPIO19 to `MISO` (pin 7), GPIO21 to `MOSI` (pin 6), GPIO5 to `CSN` (pin 4).
 4. Confirm GPIO2 goes to `GDO0` (pin 3), the data line the Somfy code toggles.
 5. Confirm `GDO2` (pin 8) is left unconnected.
 6. Confirm the pairing button bridges GPIO32 to ground: with the internal pull-up it reads HIGH when released and LOW when pressed.

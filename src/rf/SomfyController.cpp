@@ -19,9 +19,20 @@ bool SomfyController::begin() {
     // output before the CC1101 is told to key on it.
     somfyRemote.setup();
 
-    ELECHOUSE_cc1101.Init();
+    // setSpiPin() must come before Init(): Init() is what calls SPI.begin() with
+    // whatever pins are configured at that moment, and the driver latches the
+    // bus as initialized afterward. Calling it in the other order silently
+    // leaves SPI on the driver's default pins (18/19/23/5 on ESP32), which
+    // happen to match this build's defaults and so would hide the mistake until
+    // a pin is changed.
     ELECHOUSE_cc1101.setSpiPin(CC1101_SCK, CC1101_MISO, CC1101_MOSI, CC1101_CSN);
     ELECHOUSE_cc1101.setGDO0(EMITTER_GPIO);
+    ELECHOUSE_cc1101.Init();
+
+    // These two write chip registers over SPI, so they have to run after Init()
+    // has brought the bus up and reset the radio. Init() applies the driver's
+    // default 433.92 MHz, which is the wrong band for North American Somfy, so
+    // setMHZ() here is what actually lands the device on 433.42 MHz.
     ELECHOUSE_cc1101.setModulation(2); // 2 = ASK/OOK, which Somfy RTS uses
     ELECHOUSE_cc1101.setMHZ(FREQUENCY_MHZ);
 
