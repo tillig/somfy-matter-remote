@@ -52,13 +52,24 @@ static constexpr const char* NVS_ROLLING_CODE_KEY = "awning";
 
 // Button press-duration thresholds, in milliseconds. A press is classified by
 // how long the button is held before release.
-static constexpr uint32_t PRESS_SHORT_MAX_MS = 1000;  // < 1s  -> My (stop)
-static constexpr uint32_t PRESS_MEDIUM_MAX_MS = 5000; // ~3s   -> Prog (pair)
-// Anything held at least this long triggers a Matter factory reset.
-static constexpr uint32_t PRESS_LONG_MS = 10000; // ~10s  -> decommission
+static constexpr uint32_t PRESS_SHORT_MAX_MS = 1000;  // < 1s  -> stop
+static constexpr uint32_t PRESS_MEDIUM_MAX_MS = 5000; // ~3s   -> pair
+// Anything held at least this long triggers a factory reset.
+static constexpr uint32_t PRESS_LONG_MS = 10000; // ~10s  -> factory reset
 
 // Button debounce interval in milliseconds.
 static constexpr uint32_t BUTTON_DEBOUNCE_MS = 30;
+
+// Status LED timing. The idle indication is a repeating count of short pulses,
+// so the number of pulses identifies the device state (see StatusCode in
+// main.cpp). Counting pulses separated by a clear gap is far more reliable to
+// read than judging blink rates.
+// A shorter lit phase than gap makes the pulses read as distinct blips, which is
+// easier to count than an even on/off square wave.
+static constexpr uint16_t LED_PULSE_ON_MS = 120;
+static constexpr uint16_t LED_PULSE_OFF_MS = 220;
+// Gap between the end of one count and the start of the next.
+static constexpr uint16_t LED_CODE_GAP_MS = 1500;
 
 // Network and web interface. This ESP32 Matter build has no over-BLE
 // commissioning, so the firmware joins Wi-Fi itself using credentials entered

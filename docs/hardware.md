@@ -100,13 +100,23 @@ The dedicated pairing button and status LED use spare GPIOs. The button relies o
 | `D33` | 33 | LED anode via ~330 ohm resistor | Pairing and status feedback |
 | `GND` | GND | LED cathode | LED return to ground |
 
-The button action is chosen by how long it is held, and the LED confirms each action. See [the pairing procedure](pairing.md) for how the durations map to Somfy commands.
+The button action is chosen by how long it is held, and the LED briefly confirms each action with an acknowledgment pattern before returning to its idle status code. See [the pairing procedure](pairing.md) for how the durations map to Somfy commands.
 
-| Action | Hold duration | Effect | LED feedback |
+| Action | Hold duration | Effect | LED acknowledgment |
 | --- | --- | --- | --- |
-| Short press | Under 1 second | Somfy My (stop) | Single short blink |
-| Medium press | About 3 seconds | Somfy Prog (add-a-remote) | Rapid six-blink flurry |
+| Short press | Under 1 second | Stop the awning (Somfy calls this `My`) | Single short blink |
+| Medium press | About 3 seconds | Pair with the awning (Somfy calls this `Prog`) | Rapid six-blink flurry |
 | Long press | About 10 seconds | Full factory reset: clears Wi-Fi credentials and decommissions Matter; device reopens `Awning-Setup` portal on next boot | Slow four-blink pattern |
+
+While idle (not acknowledging a button press), the LED reports device state as a repeating count of short pulses, with a 1.5-second gap between repetitions; the pulse count is the code, evaluated most-blocking-first so the LED always shows the next thing to fix. Solid on, with no counting, means the device is still booting.
+
+| Pulses | Meaning |
+| --- | --- |
+| 1 | Ready: Wi-Fi is up, Matter is commissioned, and the radio is detected |
+| 2 | Waiting for Wi-Fi setup: the device is hosting the `Awning-Setup-XXXX` portal |
+| 3 | Cannot reach Wi-Fi: credentials are stored but the device is not connecting |
+| 4 | Not yet added to Google Home: on Wi-Fi, but no Matter fabric yet |
+| 5 | Radio not detected: the CC1101 did not respond over SPI |
 
 ## Wiring Diagram
 

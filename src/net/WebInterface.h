@@ -5,6 +5,8 @@
 class WiFiConnection;
 class ConfigStore;
 class AwningCovering;
+class SomfyController;
+class BootLog;
 
 // WebInterface is a single small web server that plays two roles depending on
 // how the device booted, reported by WiFiConnection:
@@ -20,7 +22,8 @@ class AwningCovering;
 // Matter. Those live in WiFiConnection and AwningCovering.
 class WebInterface {
 public:
-    WebInterface(WiFiConnection& net, ConfigStore& store, AwningCovering& awning);
+    WebInterface(
+        WiFiConnection& net, ConfigStore& store, AwningCovering& awning, SomfyController& rf, BootLog& bootLog);
     ~WebInterface();
 
     // Start the HTTP server (and, in SetupAp mode, the captive-portal DNS
@@ -40,16 +43,23 @@ private:
     void handleRoot();
     void handleSave();
     void handleNotFound();
-    // The setup and message pages depend only on their arguments, not on device
-    // state. prefillSsid seeds the SSID field (used in auth recovery, where the
-    // network name is usually unchanged and only the password is stale).
-    static String renderSetupPage(const String& message, const String& prefillSsid);
+    // prefillSsid seeds the SSID field (used in auth recovery, where the network
+    // name is usually unchanged and only the password is stale). The setup page
+    // also needs the hostname it will be reachable at after joining, so people
+    // know where to go next without watching the serial monitor.
+    String renderSetupPage(const String& message, const String& prefillSsid) const;
     static String renderDashboardMessagePage(const String& message);
     String renderDashboardPage() const;
+    // Shared markup: a password field with a show/hide toggle, and the startup
+    // log rendered as a block.
+    static String renderPasswordField(const String& id, const String& label);
+    String renderBootLog() const;
 
     WiFiConnection& net;
     ConfigStore& store;
     AwningCovering& awning;
+    SomfyController& rf;
+    BootLog& bootLog;
     bool rebootRequested = false;
     uint32_t rebootAt = 0;
 };

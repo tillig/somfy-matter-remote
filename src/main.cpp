@@ -17,79 +17,201 @@
 #include <Arduino.h>
 
 #include "config.h"
+#include "diag/BootLog.h"
 #include "matter/AwningCovering.h"
 #include "net/WiFiConnection.h"
 #include "net/WebInterface.h"
 #include "rf/SomfyController.h"
 #include "storage/ConfigStore.h"
 
+BootLog bootLog;
+
 static ConfigStore configStore;
 static SomfyController somfy;
 static AwningCovering awning(somfy, configStore);
 static WiFiConnection network(configStore);
-static WebInterface web(network, configStore, awning);
+static WebInterface web(network, configStore, awning, somfy, bootLog);
 
 // True when the device booted without Wi-Fi credentials and is running the
 // setup portal instead of the normal Matter runtime.
 static bool setupMode = false;
 
 // --- Status LED --------------------------------------------------------------
-// Non-blocking blink patterns so loop() never stalls (Matter must keep running).
+// The LED is the only feedback channel once the device is sealed in an
+// enclosure, so it reports device state as a repeating count of short pulses:
+// the number of pulses is the state code. Counting pulses separated by a clear
+// gap reads far more reliably than judging blink rates.
+//
+// Codes are ordered most-blocking first, so the LED always shows the thing to
+// fix next. A transient acknowledgment (button press, pairing sent, factory
+// reset) briefly overrides the idle code and then falls back to it.
+//
+// Everything here is non-blocking so loop() never stalls; Matter must keep
+// running.
 
 namespace {
 
-struct BlinkPattern {
-    uint16_t onMs;
-    uint16_t offMs;
+enum class StatusCode : uint8_t {
+    Booting = 0,         // solid on, no count yet
+    Ready = 1,           // Wi-Fi up, Matter commissioned, radio present
+    NeedsWiFiSetup = 2,  // hosting the setup portal, waiting for credentials
+    WiFiFailing = 3,     // credentials stored but not connecting
+    NotCommissioned = 4, // on Wi-Fi, but no Matter fabric yet
+    RadioFault = 5,      // CC1101 did not respond over SPI
 };
 
-BlinkPattern activePattern = {0, 0};
-uint8_t blinksRemaining = 0;
+// Plain-language description of a status code, used by the serial status output
+// so the LED can be correlated with what it means.
+const char* statusCodeDescription(StatusCode code) {
+    switch (code) {
+        case StatusCode::Ready:
+            return "ready";
+        case StatusCode::NeedsWiFiSetup:
+            return "waiting for Wi-Fi setup";
+        case StatusCode::WiFiFailing:
+            return "cannot reach Wi-Fi";
+        case StatusCode::NotCommissioned:
+            return "not yet added to Google Home";
+        case StatusCode::RadioFault:
+            return "radio not detected";
+        default:
+            return "starting up";
+    }
+}
+
+// Idle indication state.
+StatusCode currentCode = StatusCode::Booting;
+uint8_t pulsesLeftInCycle = 0;
 bool ledOn = false;
 uint32_t ledPhaseStartedAt = 0;
+bool inCodeGap = false;
 
-void startBlink(uint16_t onMs, uint16_t offMs, uint8_t count) {
-    activePattern = {onMs, offMs};
-    blinksRemaining = count;
-    ledOn = true;
-    digitalWrite(STATUS_LED_GPIO, HIGH);
+// Transient acknowledgment state. While active it takes over the LED.
+uint8_t ackPulsesLeft = 0;
+uint16_t ackOnMs = 0;
+uint16_t ackOffMs = 0;
+
+void ledWrite(bool on) {
+    ledOn = on;
+    digitalWrite(STATUS_LED_GPIO, on ? HIGH : LOW);
+}
+
+// Show a short acknowledgment pattern, then resume the idle code.
+void blinkAck(uint8_t count, uint16_t onMs, uint16_t offMs) {
+    ackPulsesLeft = count;
+    ackOnMs = onMs;
+    ackOffMs = offMs;
+    inCodeGap = false;
+    ledWrite(true);
     ledPhaseStartedAt = millis();
 }
 
+void blinkPressAck() {
+    blinkAck(1, 120, 120); // single short blink: press acknowledged
+}
+void blinkPairingSent() {
+    blinkAck(6, 150, 150); // rapid flurry: pairing command sent
+}
+void blinkFactoryReset() {
+    blinkAck(4, 600, 300); // slow heavy pattern: factory reset
+}
+
 void serviceLed() {
-    if (blinksRemaining == 0 && !ledOn) {
+    const uint32_t now = millis();
+
+    // Acknowledgments take precedence over the idle code.
+    if (ackPulsesLeft > 0) {
+        const uint16_t phaseLen = ledOn ? ackOnMs : ackOffMs;
+        if (now - ledPhaseStartedAt < phaseLen) {
+            return;
+        }
+        ledPhaseStartedAt = now;
+        if (ledOn) {
+            ledWrite(false);
+            ackPulsesLeft--;
+            if (ackPulsesLeft == 0) {
+                // Restart the idle cycle cleanly on the next pass.
+                pulsesLeftInCycle = 0;
+                inCodeGap = true;
+            }
+        } else {
+            ledWrite(true);
+        }
         return;
     }
-    const uint32_t now = millis();
-    const uint16_t phaseLen = ledOn ? activePattern.onMs : activePattern.offMs;
+
+    // Booting is shown as a steady light rather than a count.
+    if (currentCode == StatusCode::Booting) {
+        if (!ledOn) {
+            ledWrite(true);
+        }
+        return;
+    }
+
+    const uint8_t codeCount = static_cast<uint8_t>(currentCode);
+
+    if (inCodeGap) {
+        if (now - ledPhaseStartedAt < LED_CODE_GAP_MS) {
+            return;
+        }
+        inCodeGap = false;
+        pulsesLeftInCycle = codeCount;
+        ledPhaseStartedAt = now;
+        ledWrite(true);
+        return;
+    }
+
+    if (pulsesLeftInCycle == 0) {
+        // Nothing pending; open a gap before the next repetition.
+        inCodeGap = true;
+        ledPhaseStartedAt = now;
+        ledWrite(false);
+        return;
+    }
+
+    const uint16_t phaseLen = ledOn ? LED_PULSE_ON_MS : LED_PULSE_OFF_MS;
     if (now - ledPhaseStartedAt < phaseLen) {
         return;
     }
     ledPhaseStartedAt = now;
     if (ledOn) {
-        // Finished an on-phase; drop low and count the completed blink.
-        ledOn = false;
-        digitalWrite(STATUS_LED_GPIO, LOW);
-        if (blinksRemaining > 0) {
-            blinksRemaining--;
-        }
-    } else if (blinksRemaining > 0) {
-        // Start the next on-phase.
-        ledOn = true;
-        digitalWrite(STATUS_LED_GPIO, HIGH);
+        ledWrite(false);
+        pulsesLeftInCycle--;
+    } else {
+        ledWrite(true);
     }
 }
 
-// Blink vocabulary, chosen to be distinguishable when the device is sealed in
-// an enclosure with no serial monitor attached.
-void blinkAck() {
-    startBlink(120, 0, 1); // single short blink: press acknowledged
+// Recompute the idle status code from live device state. Ordered most-blocking
+// first so the LED always indicates the next thing to fix.
+StatusCode computeStatusCode() {
+    if (!somfy.isRadioReady()) {
+        return StatusCode::RadioFault;
+    }
+    if (network.getMode() == WiFiConnection::Mode::SetupAp) {
+        return StatusCode::NeedsWiFiSetup;
+    }
+    if (!network.isStationConnected()) {
+        return StatusCode::WiFiFailing;
+    }
+    if (!awning.isCommissioned()) {
+        return StatusCode::NotCommissioned;
+    }
+    return StatusCode::Ready;
 }
-void blinkPairing() {
-    startBlink(150, 150, 6); // rapid flurry: Prog / add-a-remote sent
-}
-void blinkReset() {
-    startBlink(600, 300, 4); // slow heavy pattern: factory reset
+
+void updateStatusCode() {
+    const StatusCode next = computeStatusCode();
+    if (next == currentCode) {
+        return;
+    }
+    currentCode = next;
+    // Restart the indication so the new code is shown from the start of a cycle
+    // rather than mid-count.
+    pulsesLeftInCycle = 0;
+    inCodeGap = true;
+    ledPhaseStartedAt = millis();
+    ledWrite(false);
 }
 
 // --- Pairing button ----------------------------------------------------------
@@ -101,20 +223,20 @@ uint32_t lastButtonEdgeAt = 0;
 bool longPressFired = false;
 
 void handleShortPress() {
-    Serial.println("[button] Short press -> My (stop).");
+    Serial.println("[button] Short press -> stop the awning.");
     somfy.stop();
-    blinkAck();
+    blinkPressAck();
 }
 
 void handleMediumPress() {
-    Serial.println("[button] Medium press -> Prog (enter add-a-remote mode).");
+    Serial.println("[button] Medium press -> send pairing command to the awning.");
     somfy.pair();
-    blinkPairing();
+    blinkPairingSent();
 }
 
 void handleLongPress() {
-    Serial.println("[button] Long press -> factory reset (Matter + Wi-Fi credentials).");
-    blinkReset();
+    Serial.println("[button] Long press -> factory reset (clears Wi-Fi and Matter pairing).");
+    blinkFactoryReset();
     // Clear the stored Wi-Fi credentials so the device reopens the setup access
     // point on the next boot, then decommission Matter. decommission() may
     // restart the device, so clear credentials first.
@@ -163,10 +285,10 @@ void serviceButton() {
 }
 
 // --- Serial command interface ------------------------------------------------
-// Type a command at 115200 baud. The radio commands (Up, Down, My, Prog) mirror
-// the Somfy library examples and are invaluable for radio bring-up before
-// Matter. The `help` and `status` commands aid diagnostics, especially when the
-// device is on the bench during hardware bring-up.
+// Type a command at 115200 baud. Commands are named for what they do (open,
+// close, stop, pair); the Somfy button names (Up, Down, My, Prog) are accepted
+// as aliases because the Somfy documentation and library use them. The help and
+// status commands aid diagnostics during hardware bring-up.
 
 const char* wifiModeName(WiFiConnection::Mode mode) {
     switch (mode) {
@@ -181,11 +303,12 @@ const char* wifiModeName(WiFiConnection::Mode mode) {
 
 void printHelp() {
     Serial.println(F("[serial] Commands:"));
-    Serial.println(F("  Up      - retract the awning (Somfy Up)"));
-    Serial.println(F("  Down    - extend the awning (Somfy Down)"));
-    Serial.println(F("  My      - stop / favorite position (Somfy My)"));
-    Serial.println(F("  Prog    - enter add-a-remote pairing mode (Somfy Prog)"));
+    Serial.println(F("  open    - retract the awning      (Somfy Up)"));
+    Serial.println(F("  close   - extend the awning       (Somfy Down)"));
+    Serial.println(F("  stop    - stop the awning         (Somfy My)"));
+    Serial.println(F("  pair    - send the pairing command (Somfy Prog)"));
     Serial.println(F("  status  - print radio, network, and Matter state"));
+    Serial.println(F("  log     - replay the startup log"));
     Serial.println(F("  help    - show this list"));
 }
 
@@ -218,15 +341,38 @@ void printStatus() {
 
     // Matter.
     Serial.printf("  Matter:     %s\n", awning.isCommissioned() ? "commissioned" : "not commissioned");
-    Serial.printf("  Direction:  INVERT_DIRECTION=%d\n", INVERT_DIRECTION);
+    Serial.printf("  Open means: %s\n",
+                  INVERT_DIRECTION ? "extend the awning (direction inverted)" : "retract the awning (normal)");
+    Serial.printf(
+        "  LED code:   %u pulse(s) - %s\n", static_cast<uint8_t>(currentCode), statusCodeDescription(currentCode));
 }
 
-// Recognize only the radio commands we intend to support. getSomfyCommand()
-// defaults unknown input to Command::My, which would silently transmit a stop;
-// gating on this table prevents a typo (or `help`) from keying the radio.
-bool isKnownRadioCommand(const String& token) {
-    return token.equalsIgnoreCase("Up") || token.equalsIgnoreCase("Down") || token.equalsIgnoreCase("My") ||
-           token.equalsIgnoreCase("Prog");
+// Resolve a radio command by intent name, accepting the Somfy button names as
+// aliases. Returns false for anything unrecognized: getSomfyCommand() defaults
+// unknown input to Command::My, so passing input straight through would let a
+// typo (or `help`) silently transmit a stop.
+bool resolveRadioCommand(const String& token, Command& command, const char*& description) {
+    if (token.equalsIgnoreCase("open") || token.equalsIgnoreCase("up")) {
+        command = Command::Up;
+        description = "open (retract)";
+        return true;
+    }
+    if (token.equalsIgnoreCase("close") || token.equalsIgnoreCase("down")) {
+        command = Command::Down;
+        description = "close (extend)";
+        return true;
+    }
+    if (token.equalsIgnoreCase("stop") || token.equalsIgnoreCase("my")) {
+        command = Command::My;
+        description = "stop";
+        return true;
+    }
+    if (token.equalsIgnoreCase("pair") || token.equalsIgnoreCase("prog")) {
+        command = Command::Prog;
+        description = "pair (add this remote to the awning)";
+        return true;
+    }
+    return false;
 }
 
 void serviceSerial() {
@@ -247,16 +393,23 @@ void serviceSerial() {
         printStatus();
         return;
     }
-    if (!isKnownRadioCommand(line)) {
+    if (line.equalsIgnoreCase("log")) {
+        bootLog.print();
+        return;
+    }
+
+    Command command = Command::My;
+    const char* description = "";
+    if (!resolveRadioCommand(line, command, description)) {
         Serial.print(F("[serial] Unknown command: "));
         Serial.println(line);
         Serial.println(F("[serial] Type 'help' for the command list."));
         return;
     }
 
-    Serial.print(F("[serial] Sending Somfy command: "));
-    Serial.println(line);
-    somfy.send(getSomfyCommand(line));
+    Serial.print(F("[serial] Sending: "));
+    Serial.println(description);
+    somfy.send(command);
 }
 
 } // namespace
@@ -265,34 +418,43 @@ void setup() {
     Serial.begin(115200);
     delay(200);
     Serial.println();
-    Serial.println("[boot] Somfy Awning Matter Remote starting.");
 
     pinMode(STATUS_LED_GPIO, OUTPUT);
-    digitalWrite(STATUS_LED_GPIO, LOW);
     pinMode(PAIR_BUTTON_GPIO, INPUT_PULLUP);
+    // Solid light while starting up.
+    currentCode = StatusCode::Booting;
+    ledWrite(true);
+
+    bootLog.addf("[boot] Somfy Awning Matter Remote starting.");
 
     configStore.begin();
 
-    // Bring up Wi-Fi first. Without stored credentials this enters SoftAP setup
-    // mode, in which Matter and the radio are left down until the user has
-    // provided a network and the device reboots.
+    // Initialize the radio before the network. It does not depend on Wi-Fi, and
+    // doing it here means a wiring fault is reported even when the device comes
+    // up in Wi-Fi setup mode.
+    if (somfy.begin()) {
+        bootLog.addf("[boot] Radio ready: CC1101 detected, %.2f MHz OOK.", FREQUENCY_MHZ);
+    } else {
+        bootLog.addf("[boot] PROBLEM: CC1101 not detected. Check the SPI wiring and that VCC is on 3V3.");
+    }
+
+    // Without stored credentials this enters SoftAP setup mode, in which Matter
+    // is left down until the user provides a network and the device reboots.
     if (network.begin() == WiFiConnection::Mode::SetupAp) {
         setupMode = true;
         web.begin();
-        Serial.println("[boot] Setup mode: join the access point and open the portal to configure Wi-Fi.");
+        bootLog.addf("[boot] Wi-Fi setup needed. Join \"%s\" and open http://%s",
+                     network.getSetupApSsid().c_str(),
+                     network.getIP().toString().c_str());
+        updateStatusCode();
         return;
-    }
-
-    if (somfy.begin()) {
-        Serial.println("[boot] CC1101 initialized at 433.42 MHz (OOK).");
-    } else {
-        Serial.println("[boot] WARNING: CC1101 not detected. Check SPI wiring and 3V3 power.");
     }
 
     awning.begin();
     web.begin();
 
-    Serial.println("[boot] Ready. Type 'help' for serial commands.");
+    bootLog.addf("[boot] Ready. Type 'help' for serial commands.");
+    updateStatusCode();
 }
 
 void loop() {
@@ -307,6 +469,7 @@ void loop() {
     network.loop();
     awning.loop();
     web.loop();
+    updateStatusCode();
     serviceSerial();
     serviceButton();
     serviceLed();

@@ -50,13 +50,19 @@ void WiFiConnection::installEventHandler() {
     WiFi.onEvent(
         [](arduino_event_id_t /*event*/, arduino_event_info_t info) {
             uint8_t reason = info.wifi_sta_disconnected.reason;
+            // Report the reason in words. A bare numeric code is not actionable.
+            const char* name = WiFi.STA.disconnectReasonName(static_cast<wifi_err_reason_t>(reason));
             if (isAuthFailureReason(reason)) {
                 if (consecutiveAuthFailures < 255) {
                     consecutiveAuthFailures++;
                 }
-                Serial.printf("[net] Wi-Fi auth failure (reason %u), count %u.\n", reason, consecutiveAuthFailures);
+                Serial.printf("[net] Wi-Fi rejected the password (%s). Attempt %u of %u before "
+                              "reopening the setup portal.\n",
+                              name,
+                              consecutiveAuthFailures,
+                              WIFI_AUTH_FAIL_LIMIT);
             } else {
-                Serial.printf("[net] Wi-Fi disconnected (reason %u).\n", reason);
+                Serial.printf("[net] Wi-Fi disconnected: %s. Will keep retrying.\n", name);
             }
         },
         ARDUINO_EVENT_WIFI_STA_DISCONNECTED);
