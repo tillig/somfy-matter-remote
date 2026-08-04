@@ -42,6 +42,21 @@ static constexpr uint8_t CC1101_CSN = 5;   // -> CC1101 CSN / CS
 static constexpr uint8_t PAIR_BUTTON_GPIO = 32; // to ground, uses internal pull-up
 static constexpr uint8_t STATUS_LED_GPIO = 33;  // to LED anode via ~330 ohm resistor
 
+// Firmware version, injected by scripts/version.py from the git tag so there is
+// a single source of truth. The fallback only applies to a build that bypasses
+// PlatformIO; the dashboard reports whatever it gets verbatim and skips the
+// update comparison unless the value looks like a release tag.
+#ifndef FIRMWARE_VERSION
+#define FIRMWARE_VERSION "unknown"
+#endif
+
+// Repository used by the dashboard's update check. The check runs in the
+// visitor's browser against the public GitHub API, not on the device: the ESP32
+// would need a TLS stack and a current certificate bundle, and a blocking HTTPS
+// call in loop() would stall Matter. The browser also spreads the API's 60
+// requests per hour across viewers rather than per device.
+static constexpr const char* GITHUB_REPO = "tillig/somfy-matter-remote";
+
 // NVS namespace and key for the rolling code. The Somfy library warns that NVS
 // key length is limited, so both strings are kept short.
 static constexpr const char* NVS_ROLLING_CODE_NAMESPACE = "somfy";

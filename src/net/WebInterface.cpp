@@ -12,6 +12,12 @@
 #include "../storage/ConfigStore.h"
 #include "WiFiConnection.h"
 
+// FIRMWARE_VERSION as a JavaScript string literal. The version comes from a git
+// tag, which cannot contain a quote or backslash, so wrapping it in quotes is
+// sufficient here and avoids an escaping routine for a value that never needs
+// one.
+#define FIRMWARE_VERSION_JS "'" FIRMWARE_VERSION "'"
+
 // The web and DNS servers are file-scope singletons: there is one HTTP surface
 // on the device, and WebServer/DNSServer are not copyable.
 static WebServer server(80);
@@ -158,6 +164,41 @@ String WebInterface::renderPasswordField(const String& id, const String& label) 
     return html;
 }
 
+// The update check runs in the browser against the public GitHub API, which
+// sends "Access-Control-Allow-Origin: *" and needs no credentials. Doing it here
+// rather than on the device avoids a TLS stack and a certificate bundle on the
+// ESP32, keeps a network call out of loop() where it would stall Matter, and
+// spends the API's 60-requests-per-hour budget per viewer instead of per device.
+//
+// It fails quietly. No internet, a rate-limit response, or an unparsable tag
+// leaves the row showing just the installed version: a broken check must never
+// imply an update state it did not establish.
+String WebInterface::renderUpdateCheck() {
+    String html = "<script>(function(){";
+    // Only compare when the installed build is a plain release tag. A
+    // git-describe value such as "v1.0.0-3-gabc1234" is ahead of the release in
+    // unknown ways, and "unknown" says nothing, so neither is comparable.
+    html += "var cur=" FIRMWARE_VERSION_JS ";";
+    html += "var el=document.getElementById('upd');";
+    html += "if(!el||!/^v?\\d+\\.\\d+\\.\\d+$/.test(cur)){return;}";
+    // Numeric, component-wise comparison. A string compare would rank v1.0.10
+    // below v1.0.9, which is the classic way this check goes wrong.
+    html += "function parts(v){return v.replace(/^v/,'').split('.').map(Number);}";
+    html += "function newer(a,b){var x=parts(a),y=parts(b);";
+    html += "for(var i=0;i<3;i++){if(x[i]>y[i]){return true;}if(x[i]<y[i]){return false;}}return false;}";
+    html += "fetch('https://api.github.com/repos/" + String(GITHUB_REPO) + "/releases/latest')";
+    html += ".then(function(r){return r.ok?r.json():null;})";
+    html += ".then(function(d){";
+    html += "if(!d||!d.tag_name||!/^v?\\d+\\.\\d+\\.\\d+$/.test(d.tag_name)){return;}";
+    html += "if(newer(d.tag_name,cur)){";
+    html += "el.innerHTML=\"&mdash; <strong class='warn'>\"+d.tag_name+\" is available</strong> \"";
+    html += "+\"(<a href='https://github.com/" + String(GITHUB_REPO) + "/releases/latest'>release notes</a>)\";";
+    html += "}else{el.innerHTML=\"&mdash; <span class='ok'>up to date</span>\";}";
+    html += "}).catch(function(){});";
+    html += "})();</script>";
+    return html;
+}
+
 String WebInterface::renderBootLog() const {
     const uint8_t count = bootLog.count();
     if (count == 0) {
@@ -258,7 +299,11 @@ String WebInterface::renderDashboardPage() const {
     html += "<tr><th>Wi-Fi</th><td>" + store.getWiFiSsid() + " (" + String(net.getRssi()) + " dBm)</td></tr>";
     html += "<tr><th>Hostname</th><td>" + net.getHostname() + ".local</td></tr>";
     html += "<tr><th>IP address</th><td>" + net.getIP().toString() + "</td></tr>";
+    // The update state is filled in by the browser (see renderUpdateCheck), so
+    // the row starts as the installed version alone and never blocks the page.
+    html += "<tr><th>Firmware</th><td>" FIRMWARE_VERSION " <span id='upd'></span></td></tr>";
     html += "</table>";
+    html += renderUpdateCheck();
 
     // The device cannot know whether the motor accepted the pairing, because
     // Somfy RTS is transmit-only with no acknowledgement. Say so plainly instead

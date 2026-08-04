@@ -23,6 +23,11 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+        with:
+          # scripts/version.py runs "git describe --tags" to stamp
+          # FIRMWARE_VERSION. The default shallow checkout has no tags, which
+          # would publish a release binary reporting its version as "unknown".
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v6

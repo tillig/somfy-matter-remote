@@ -10,6 +10,7 @@ This guide explains how to build, validate, and extend the firmware. It is writt
 - [Hardware-Gated Work](#hardware-gated-work)
 - [Continuous Integration](#continuous-integration)
 - [Releases And The Web Flasher](#releases-and-the-web-flasher)
+- [Firmware Version](#firmware-version)
 - [Toolchain Gotchas](#toolchain-gotchas)
 - [Documentation Responsibilities](#documentation-responsibilities)
 
@@ -92,6 +93,14 @@ git push origin v1.0.0
 ```
 
 The workflow builds and publishes the release; the flasher picks up the new binary automatically. GitHub Pages must be enabled once in the repository settings with the source set to GitHub Actions. When testing the flasher, use desktop Chrome or Edge, since Web Serial is not available in Firefox, Safari, or mobile browsers.
+
+## Firmware Version
+
+`scripts/version.py` runs as a PlatformIO pre-build script and stamps `FIRMWARE_VERSION` from `git describe --tags --always --dirty`, so the release tag is the single source of truth and no constant in the source can drift from it. A tagged commit yields exactly the tag (`v1.0.0`); anything else is descriptive (`v1.0.0-3-gabc1234-dirty`), which keeps a hand-built image from being mistaken for a release.
+
+Both workflows check out with `fetch-depth: 0`. The default shallow checkout has no tags, which would silently publish a release binary reporting `unknown`.
+
+The dashboard's update check compares that version against the latest GitHub release **in the browser**, not on the device. The API sends `Access-Control-Allow-Origin: *` and needs no credentials. Keeping it client-side avoids a TLS stack and certificate bundle on the ESP32, keeps a blocking network call out of `loop()` where it would stall Matter, and spends the 60-per-hour rate limit per viewer rather than per device. It fails quietly by design: a failed fetch, a rate-limit response, or a non-release version leaves only the installed version shown.
 
 ## Toolchain Gotchas
 
