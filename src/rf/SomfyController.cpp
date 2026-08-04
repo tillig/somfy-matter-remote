@@ -15,10 +15,6 @@ static SomfyRemote somfyRemote(EMITTER_GPIO, REMOTE_ID, &rollingCodeStorage);
 SomfyController::SomfyController() {}
 
 bool SomfyController::begin() {
-    // Bring up the Somfy emitter first so the GDO0 pin is configured as an
-    // output before the CC1101 is told to key on it.
-    somfyRemote.setup();
-
     // setSpiPin() must come before Init(): Init() is what calls SPI.begin() with
     // whatever pins are configured at that moment, and the driver latches the
     // bus as initialized afterward. Calling it in the other order silently
@@ -35,6 +31,20 @@ bool SomfyController::begin() {
     // setMHZ() here is what actually lands the device on 433.42 MHz.
     ELECHOUSE_cc1101.setModulation(2); // 2 = ASK/OOK, which Somfy RTS uses
     ELECHOUSE_cc1101.setMHZ(FREQUENCY_MHZ);
+
+    // The emitter setup must come LAST, after every CC1101 call that touches the
+    // GDO0 pin mode. setGDO0() calls pinMode(GDO0, INPUT) internally, because the
+    // driver is written for receiving, where GDO0 is a status output from the
+    // radio. This design is the reverse: the Somfy library bit-bangs the waveform
+    // INTO the radio, so the pin has to be an ESP32 output.
+    //
+    // Order matters more than it looks, and the failure is silent. A pin left in
+    // INPUT mode still counts as a registered GPIO, so digitalWrite() neither
+    // warns nor errors: it sets the output latch on a pin whose output driver is
+    // disabled, and nothing reaches the physical line. Every frame would be
+    // timed out perfectly in software and transmit nothing. Calling setup() here
+    // re-establishes OUTPUT and idles the line LOW.
+    somfyRemote.setup();
 
     // getCC1101() reads the chip version register over SPI; a false result
     // means the radio is not wired correctly or not powered.
