@@ -264,10 +264,28 @@ String WebInterface::renderDashboardPage() const {
     // Somfy RTS is transmit-only with no acknowledgement. Say so plainly instead
     // of implying a confirmed state.
     html += "<h2>Awning Pairing</h2>";
+    html += "<p>Pairing registers this device as an extra remote on the awning "
+            "motor. Your existing remote keeps working. The motor only accepts a "
+            "new remote while it is in programming mode, which the existing "
+            "remote puts it into.</p>";
+    html += "<ol>";
+    html += "<li>Find the <code>Prog</code> button on the back of the physical "
+            "Telis remote, often behind the battery cover or in a small "
+            "pinhole.</li>";
+    html += "<li>Press and hold <code>Prog</code> until the awning jogs, a short "
+            "back-and-forth movement. The motor is now in programming mode for a "
+            "few seconds.</li>";
+    html += "<li>Within that window, hold this device's panel-mount button for "
+            "about three seconds, until the status LED blinks six times "
+            "rapidly.</li>";
+    html += "<li>The awning should jog again, which means the new remote was "
+            "registered.</li>";
+    html += "</ol>";
     html += "<p>Somfy radio is one-way, so this device cannot detect whether the "
-            "awning accepted it. The only proof is the awning responding to a "
-            "command. To pair, hold the button for about three seconds while the "
-            "motor is in programming mode, then try the open and close controls.</p>";
+            "awning accepted it. The only proof is the awning moving on command. "
+            "There are no awning controls on this page: short-press the "
+            "panel-mount button to send a stop, and try open and close from "
+            "Google Home once the device is commissioned.</p>";
 
     if (commissioned) {
         html += "<h2>Matter</h2>";
