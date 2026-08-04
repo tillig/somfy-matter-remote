@@ -2,7 +2,7 @@
 
 #include <ELECHOUSE_CC1101_SRC_DRV.h>
 #include <NVSRollingCodeStorage.h>
-#include <Preferences.h>
+#include <nvs.h>
 
 #include "../config.h"
 
@@ -72,11 +72,36 @@ void SomfyController::pair() {
 // even though the rolling code lives in a shared NVS namespace.
 uint16_t SomfyController::peekRollingCode() const {
     // Read the value the Somfy library stores, without the increment that
-    // nextCode() performs. The library seeds it to 1 on first use, so a stored
-    // value of 0 (the default when the key is absent) means "not yet sent".
-    Preferences prefs;
-    prefs.begin(NVS_ROLLING_CODE_NAMESPACE, /*readOnly=*/true);
-    const uint16_t code = prefs.getUShort(NVS_ROLLING_CODE_KEY, 0);
-    prefs.end();
+    // nextCode() performs. The library seeds it to 1 on first use, so a result
+    // of 0 means "not yet sent".
+    //
+    // This goes to the NVS API directly rather than through Preferences on
+    // purpose. Before the first command is sent, the Somfy library has never
+    // written this namespace, so it does not exist yet; a read-only open of a
+    // missing namespace is normal here, but Preferences::begin() logs it at
+    // error level ("nvs_open failed: NOT_FOUND") with no way to suppress it.
+    // That put a scary-looking error in front of every first-run user on a
+    // healthy device. Handling ESP_ERR_NVS_NOT_FOUND here keeps the log clean
+    // while still surfacing genuine failures.
+    nvs_handle_t handle;
+    esp_err_t err = nvs_open(NVS_ROLLING_CODE_NAMESPACE, NVS_READONLY, &handle);
+    if (err == ESP_ERR_NVS_NOT_FOUND) {
+        return 0; // namespace absent: nothing has been transmitted yet
+    }
+    if (err != ESP_OK) {
+        Serial.printf("[rf] Could not read the rolling code: %s\n", esp_err_to_name(err));
+        return 0;
+    }
+
+    uint16_t code = 0;
+    err = nvs_get_u16(handle, NVS_ROLLING_CODE_KEY, &code);
+    nvs_close(handle);
+    if (err == ESP_ERR_NVS_NOT_FOUND) {
+        return 0; // namespace exists but this key does not
+    }
+    if (err != ESP_OK) {
+        Serial.printf("[rf] Could not read the rolling code: %s\n", esp_err_to_name(err));
+        return 0;
+    }
     return code;
 }
