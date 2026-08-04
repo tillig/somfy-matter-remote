@@ -77,9 +77,9 @@ The dividing line is deliberate: a transient outage (router rebooting, device ou
 
 ## Direction And Position Semantics
 
-Matter Window Covering treats 0 percent lift as fully open (awning retracted, letting light in) and 100 percent as fully closed (awning extended, blocking light). Somfy uses Up to retract and Down to extend.
+Matter Window Covering treats 0 percent lift as fully open and 100 percent as fully closed. Somfy uses Up to retract and Down to extend.
 
-The convention-correct default (`INVERT_DIRECTION=0`) maps Matter Open to Somfy Up and Matter Close to Somfy Down. The `INVERT_DIRECTION` compile-time flag flips only the physical motor direction; the reported Matter state stays convention-correct so a controller tile still reads right. See [Direction Semantics in the hardware reference](hardware.md) for the daily-use rationale.
+This build defaults to `INVERT_DIRECTION=1`, the awning sense of the words: Matter Open sends Somfy Down to unroll the awning for shade, and Matter Close sends Somfy Up to roll it away. Setting the flag to 0 gives the literal Matter reading, where Open retracts. The flag decides only which physical motion each word triggers; the reported lift always matches the command that was issued, so a controller tile never contradicts itself. See [Direction Semantics in the hardware reference](hardware.md) for the daily-use rationale.
 
 Because a Somfy RTS motor gives no position feedback, the endpoint reports only the two end states. An open, close, or go-to-percentage command drives the motor and then snaps the reported lift to the nearest end stop (a go-to value below 50 percent opens, otherwise it closes). This keeps slider drags and mid-value routines working sensibly without pretending to have real intermediate positioning. Timed partial-position estimation is a possible future enhancement, not a current feature.
 
