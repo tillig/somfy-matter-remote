@@ -100,13 +100,15 @@ The dedicated pairing button and status LED use spare GPIOs. The button relies o
 | `D33` | 33 | LED anode via ~330 ohm resistor | Pairing and status feedback |
 | `GND` | GND | LED cathode | LED return to ground |
 
-The button action is chosen by how long it is held, and the LED briefly confirms each action with an acknowledgment pattern before returning to its idle status code. See [the pairing procedure](pairing.md) for how the durations map to Somfy commands.
+The button action is chosen by how long it is held. The LED marks each threshold as it is crossed, so the button is released on a cue rather than by estimating elapsed time, and it returns to the idle status code afterward. See [the pairing procedure](pairing.md) for how the actions map to Somfy commands.
 
-| Action | Hold duration | Effect | LED acknowledgment |
-| --- | --- | --- | --- |
-| Short press | Under 1 second | Stop the awning (Somfy calls this `My`) | Single short blink |
-| Medium press | About 3 seconds | Pair with the awning (Somfy calls this `Prog`) | Rapid six-blink flurry |
-| Long press | About 10 seconds | Full factory reset: clears Wi-Fi credentials and decommissions Matter; device reopens `Awning-Setup` portal on next boot | Slow four-blink pattern |
+| Hold until | LED cue | Release effect |
+| --- | --- | --- |
+| Press registers | Blinks off and back on once | Stop the awning (Somfy calls this `My`) |
+| Pairing threshold, about 3 seconds | Two quick blinks | Pair with the awning (Somfy calls this `Prog`) |
+| Reset threshold, about 10 seconds | Four slow, heavy blinks | Full factory reset, fired while still held: clears Wi-Fi credentials and decommissions Matter; device reopens `Awning-Setup` portal on next boot |
+
+Each cue is short enough to finish before the next threshold is due, so a cue is never still playing when the following one arrives. The factory reset fires on reaching its threshold rather than on release, so continuing to hold cannot trigger anything further.
 
 While idle (not acknowledging a button press), the LED reports device state as a repeating count of short pulses, with a 1.5-second gap between repetitions; the pulse count is the code, evaluated most-blocking-first so the LED always shows the next thing to fix. Solid on, with no counting, means the device is still booting.
 
@@ -212,6 +214,8 @@ The awning motor is usually near a wall inside which the physical remote already
 
 ## Direction Semantics
 
-Matter treats 0 percent lift as fully open (retracted) and 100 percent as fully closed (extended). Somfy uses Up to retract and Down to extend. The default maps Matter Open to Somfy Up and Matter Close to Somfy Down, which is convention-correct.
+Matter treats 0 percent lift as fully open and 100 percent as fully closed. For a roller blind that means open equals retracted. An awning is spoken about the other way round: "open the awning" means unroll it for shade, and "closed" means rolled up and put away.
 
-Some people naturally say "open the awning" to mean "deploy it for shade," which is the opposite. If the direction feels backward in daily use, flip the `INVERT_DIRECTION` build flag and reflash, or simply rename the device in the controller app. The flag changes only the physical motor direction; the reported Matter state stays convention-correct.
+This build follows the awning sense, with `INVERT_DIRECTION=1`. Matter Open sends Somfy Down to extend, and Matter Close sends Somfy Up to retract. Set the flag to 0 for the literal Matter reading, where Open retracts.
+
+Either setting keeps the reported lift percentage consistent with the command that was issued, so a controller tile never contradicts itself: after Open it reads open, and after Close it reads closed. What the flag changes is which physical motion the words "open" and "close" trigger. The serial `retract` and `extend` commands name the motion directly and are unaffected.

@@ -49,8 +49,8 @@ The serial log prints a commissioning-complete line when the fabric join succeed
 ## Test Voice And App Control
 
 1. Say "open the awning" and "close the awning," and use the tile's open, close, and stop controls.
-2. Confirm the motion matches expectation. With the default mapping, open retracts the awning and close extends it.
-3. If the direction feels backward, flip the `INVERT_DIRECTION` build flag, rebuild, and reflash, or simply rename the device and adjust how you phrase commands. See [the direction semantics notes](hardware.md#direction-semantics).
+2. Confirm the motion matches expectation. With this build's default mapping (`INVERT_DIRECTION=1`), open unrolls the awning for shade and close rolls it up and away.
+3. If the direction feels backward, set `INVERT_DIRECTION` to 0, rebuild, and reflash, or simply rename the device and adjust how you phrase commands. See [the direction semantics notes](hardware.md#direction-semantics).
 
 Because a Somfy awning gives no position feedback, the tile reports only the two end states. Dragging the slider or asking for a percentage moves the awning to the nearer end stop rather than to a partial position.
 
@@ -58,7 +58,7 @@ Because a Somfy awning gives no position feedback, the tile reports only the two
 
 Once the device is on Wi-Fi, it serves a small status page at `http://somfy-awning-XXXX.local` (where `XXXX` is the per-device suffix), or at the IP address shown in the serial log. The exact hostname is printed to serial on connect and shown on the page itself. The dashboard's status table reports radio detection, whether any awning commands have been sent (and the current rolling code), Matter commissioning state, Wi-Fi SSID and signal strength, hostname, and IP address. An Awning Pairing section walks through the full add-a-remote procedure, including using the physical Telis remote's `Prog` button to put the motor into programming mode. A Startup Log section replays the boot messages, so the device can be checked without a serial monitor. Before commissioning the page also shows the manual pairing code and a link to the QR code. After commissioning it points to multi-admin sharing for adding other ecosystems. The page also has a `Change Wi-Fi` form, with a password Show/Hide toggle, for moving the device to another network without a factory reset; if the new network cannot be reached, the device automatically returns to the current one, so a mistyped password will not lock it out.
 
-The dashboard has no awning controls, because an open or close command is only useful once a controller can send it. It says so, and points to the panel-mount button's short press for a stop and to Google Home for open and close after commissioning.
+The dashboard has no awning controls, because an open or close command is only useful once a controller can send it. It says so, and points to a quick tap of the panel-mount button for a stop and to Google Home for open and close after commissioning.
 
 Because Somfy RTS is transmit-only with no acknowledgment from the motor, the dashboard cannot report whether the awning accepted a pairing or a command; it says so plainly rather than implying a confirmed state. The only proof is the awning physically responding.
 
@@ -68,7 +68,7 @@ After a power cycle, the device rejoins Wi-Fi and its Matter fabric automaticall
 
 If the network password is changed while the device is configured, its stored password becomes stale. The device detects the repeated authentication rejection (distinct from a network simply being down) and reopens its `Awning-Setup-XXXX` access point so the new password can be entered, keeping its Matter commissioning. The setup page explains that the saved password was rejected and prefills the network name, so only the new password is needed. This means a changed router password never requires a factory reset. The recommended order is to update the password on the router first, then reconnect the device through its setup portal.
 
-To change only the Wi-Fi network or password proactively, use the `Change Wi-Fi` form on the dashboard; that leaves Matter commissioning intact. To move to a different controller or recover from a bad state, do a factory reset with a long press (about 10 seconds) of the panel-mount button. That decommissions Matter, clears the fabric data, and clears the stored Wi-Fi credentials, so the device reopens the setup access point on the next boot for fresh setup. The Somfy pairing and rolling code are unaffected; they live in separate storage.
+To change only the Wi-Fi network or password proactively, use the `Change Wi-Fi` form on the dashboard; that leaves Matter commissioning intact. To move to a different controller or recover from a bad state, do a factory reset by holding the panel-mount button to its reset threshold (about 10 seconds), which the LED confirms with four slow blinks. That decommissions Matter, clears the fabric data, and clears the stored Wi-Fi credentials, so the device reopens the setup access point on the next boot for fresh setup. The Somfy pairing and rolling code are unaffected; they live in separate storage.
 
 ## Multi-Admin Sharing
 

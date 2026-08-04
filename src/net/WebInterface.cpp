@@ -275,17 +275,17 @@ String WebInterface::renderDashboardPage() const {
     html += "<li>Press and hold <code>Prog</code> until the awning jogs, a short "
             "back-and-forth movement. The motor is now in programming mode for a "
             "few seconds.</li>";
-    html += "<li>Within that window, hold this device's panel-mount button for "
-            "about three seconds, until the status LED blinks six times "
-            "rapidly.</li>";
+    html += "<li>Within that window, hold this device's panel-mount button until "
+            "the status LED gives two quick blinks, at about three seconds, then "
+            "release. Keeping it held past that leads to a factory reset.</li>";
     html += "<li>The awning should jog again, which means the new remote was "
             "registered.</li>";
     html += "</ol>";
     html += "<p>Somfy radio is one-way, so this device cannot detect whether the "
             "awning accepted it. The only proof is the awning moving on command. "
-            "There are no awning controls on this page: short-press the "
-            "panel-mount button to send a stop, and try open and close from "
-            "Google Home once the device is commissioned.</p>";
+            "There are no awning controls on this page: tap the panel-mount "
+            "button to send a stop, and try open and close from Google Home once "
+            "the device is commissioned.</p>";
 
     if (commissioned) {
         html += "<h2>Matter</h2>";

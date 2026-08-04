@@ -19,26 +19,26 @@ This is hardware-gated work. It cannot be validated without the physical CC1101,
 Locate the Prog button on the back of the physical Telis remote before starting; it is often behind the battery cover or a small pinhole.
 
 1. Press and hold the Prog button on the physical remote until the awning motor jogs briefly, a short back-and-forth movement. The motor is now in programming mode for a few seconds.
-2. Within that window, send the pair command from the ESP32. On a bench, type `pair` in the serial monitor (Somfy calls this `Prog`). On an assembled unit, hold the panel-mount pairing button for about 3 seconds until the status LED blinks its pairing pattern.
+2. Within that window, send the pair command from the ESP32. On a bench, type `pair` in the serial monitor (Somfy calls this `Prog`). On an assembled unit, hold the panel-mount button until the status LED gives two quick blinks, at about three seconds, then release.
 3. The awning should jog again to confirm the new remote is registered.
 
 ## Confirm Control
 
-1. Send `open`, `close`, and `stop` from the serial monitor (Somfy calls these `Up`, `Down`, and `My`), or use the panel-mount button short press for stop.
-2. Confirm the awning retracts on open, extends on close, and stops on stop.
+1. Send `retract`, `extend`, and `stop` from the serial monitor (Somfy calls these `Up`, `Down`, and `My`), or tap the panel-mount button for stop.
+2. Confirm the awning rolls up on `retract`, unrolls on `extend`, and halts on `stop`. These name the physical motion directly, so they are unaffected by which way `INVERT_DIRECTION` maps open and close.
 3. Power-cycle the ESP32, then send more commands. They must keep working after the reboot. If they do, the rolling code is persisting correctly in NVS.
 
 Validate from the intended mounting spot, not just next to the motor, so the range check reflects real placement.
 
 ## Button Reference
 
-The panel-mount button on GPIO32 covers installation and recovery without a laptop. The action is chosen by how long the button is held, and the status LED on GPIO33 confirms each action with a brief acknowledgment pattern before returning to its idle status code (see [the LED status codes in the hardware reference](hardware.md#button-and-led-wiring)).
+The panel-mount button on GPIO32 covers installation and recovery without a laptop. The action is chosen by how long the button is held, and the status LED on GPIO33 marks each threshold as it is crossed, so the button is released on a cue rather than by estimating elapsed time (see [the LED status codes in the hardware reference](hardware.md#button-and-led-wiring)).
 
-| Action | Hold duration | Somfy or system effect | LED acknowledgment |
-| --- | --- | --- | --- |
-| Short press | Under 1 second | Stop the awning (Somfy calls this `My`) | Single short blink |
-| Medium press | About 3 seconds | Pair with the awning (Somfy calls this `Prog`) | Rapid six-blink flurry |
-| Long press | About 10 seconds | Full factory reset: decommissions Matter and clears stored Wi-Fi credentials; device reopens `Awning-Setup` portal on next boot | Slow four-blink pattern |
+| Hold until | LED cue | Release effect |
+| --- | --- | --- |
+| Press registers | Blinks off and back on once | Stop the awning (Somfy calls this `My`) |
+| Pairing threshold, about 3 seconds | Two quick blinks | Pair with the awning (Somfy calls this `Prog`) |
+| Reset threshold, about 10 seconds | Four slow, heavy blinks | Full factory reset, fired while still held: decommissions Matter and clears stored Wi-Fi credentials; device reopens `Awning-Setup` portal on next boot |
 
 The onboard BOOT button is deliberately not used at runtime, because it ends up sealed inside the enclosure.
 

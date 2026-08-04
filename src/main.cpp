@@ -106,14 +106,19 @@ void blinkAck(uint8_t count, uint16_t onMs, uint16_t offMs) {
     ledPhaseStartedAt = millis();
 }
 
+// The LED cues the button rather than only reporting after the fact. Each
+// pattern is short enough to finish well before the next threshold, so a cue is
+// never still playing when the following one is due; that is what previously
+// made the pairing hold unusable, because waiting out a six-blink flurry ran
+// straight into the factory-reset threshold.
 void blinkPressAck() {
-    blinkAck(1, 120, 120); // single short blink: press acknowledged
+    blinkAck(1, 120, 120); // press seen: LED drops out and comes back once
 }
-void blinkPairingSent() {
-    blinkAck(6, 150, 150); // rapid flurry: pairing command sent
+void blinkThresholdReached() {
+    blinkAck(2, 90, 90); // quick double blink: let go now to take this action
 }
 void blinkFactoryReset() {
-    blinkAck(4, 600, 300); // slow heavy pattern: factory reset
+    blinkAck(4, 600, 300); // slow heavy pattern: factory reset has fired
 }
 
 void serviceLed() {
@@ -215,27 +220,30 @@ void updateStatusCode() {
 }
 
 // --- Pairing button ----------------------------------------------------------
-// One button, debounced, with the action chosen by hold duration on release.
+// One button, debounced, with the action chosen by how long it is held. The LED
+// announces each threshold as it is crossed, so the button is released on a cue
+// instead of the user having to estimate three seconds in their head.
 
 bool buttonWasDown = false;
 uint32_t buttonDownAt = 0;
 uint32_t lastButtonEdgeAt = 0;
-bool longPressFired = false;
+bool pairThresholdAnnounced = false;
+bool resetFired = false;
 
-void handleShortPress() {
-    Serial.println("[button] Short press -> stop the awning.");
+void handleStop() {
+    Serial.println("[button] Released before the pairing threshold -> stop the awning.");
     somfy.stop();
-    blinkPressAck();
+    // No extra pattern here: the press-seen blink already fired on the way down,
+    // and a stop is confirmed by the awning itself.
 }
 
-void handleMediumPress() {
-    Serial.println("[button] Medium press -> send pairing command to the awning.");
+void handlePair() {
+    Serial.println("[button] Released after the pairing threshold -> send pairing command.");
     somfy.pair();
-    blinkPairingSent();
 }
 
-void handleLongPress() {
-    Serial.println("[button] Long press -> factory reset (clears Wi-Fi and Matter pairing).");
+void handleFactoryReset() {
+    Serial.println("[button] Held to the reset threshold -> factory reset (clears Wi-Fi and Matter pairing).");
     blinkFactoryReset();
     // Clear the stored Wi-Fi credentials so the device reopens the setup access
     // point on the next boot, then decommission Matter. decommission() may
@@ -258,29 +266,46 @@ void serviceButton() {
         if (down) {
             buttonWasDown = true;
             buttonDownAt = now;
-            longPressFired = false;
+            pairThresholdAnnounced = false;
+            resetFired = false;
+            // Confirm the press immediately, so a press that does nothing is
+            // distinguishable from a button or wiring fault.
+            blinkPressAck();
         } else {
             buttonWasDown = false;
-            if (longPressFired) {
-                return; // long-press action already fired while held
+            if (resetFired) {
+                return; // the reset already ran while the button was held
             }
-            const uint32_t held = now - buttonDownAt;
-            if (held < PRESS_SHORT_MAX_MS) {
-                handleShortPress();
-            } else if (held < PRESS_MEDIUM_MAX_MS) {
-                handleMediumPress();
+            // Every release maps to an action, chosen by whether the pairing cue
+            // had already been shown. Releasing on that cue is the pairing path;
+            // releasing before it is a stop.
+            if (pairThresholdAnnounced) {
+                handlePair();
             } else {
-                handleLongPress();
+                handleStop();
             }
         }
         return;
     }
 
-    // Fire the factory reset as soon as the long-press threshold is reached,
-    // rather than waiting for release, so the user gets immediate feedback.
-    if (down && !longPressFired && (now - buttonDownAt) >= PRESS_LONG_MS) {
-        longPressFired = true;
-        handleLongPress();
+    if (!down) {
+        return;
+    }
+
+    const uint32_t held = now - buttonDownAt;
+
+    // Cue the pairing threshold so the button can be released on the signal.
+    if (!pairThresholdAnnounced && held >= PRESS_PAIR_MS) {
+        pairThresholdAnnounced = true;
+        blinkThresholdReached();
+        return;
+    }
+
+    // Fire the factory reset on reaching the threshold rather than on release,
+    // so continuing to hold cannot be mistaken for a further action.
+    if (!resetFired && held >= PRESS_RESET_MS) {
+        resetFired = true;
+        handleFactoryReset();
     }
 }
 
@@ -302,14 +327,18 @@ const char* wifiModeName(WiFiConnection::Mode mode) {
 }
 
 void printHelp() {
-    Serial.println(F("[serial] Commands:"));
-    Serial.println(F("  open    - retract the awning      (Somfy Up)"));
-    Serial.println(F("  close   - extend the awning       (Somfy Down)"));
-    Serial.println(F("  stop    - stop the awning         (Somfy My)"));
-    Serial.println(F("  pair    - send the pairing command (Somfy Prog)"));
+    Serial.println(F("[serial] Commands (raw radio, named for the physical motion):"));
+    Serial.println(F("  retract - roll the awning up and away  (Somfy Up)"));
+    Serial.println(F("  extend  - unroll the awning for shade  (Somfy Down)"));
+    Serial.println(F("  stop    - stop the awning              (Somfy My)"));
+    Serial.println(F("  pair    - send the pairing command     (Somfy Prog)"));
     Serial.println(F("  status  - print radio, network, and Matter state"));
     Serial.println(F("  log     - replay the startup log"));
     Serial.println(F("  help    - show this list"));
+    // These name the motor direction rather than Matter's open/close, because
+    // INVERT_DIRECTION decides which way round those two words map and these
+    // commands go straight to the radio without consulting it.
+    Serial.println(F("[serial] 'open' and 'close' are accepted in the Matter sense for this build."));
 }
 
 void printStatus() {
@@ -342,7 +371,8 @@ void printStatus() {
     // Matter.
     Serial.printf("  Matter:     %s\n", awning.isCommissioned() ? "commissioned" : "not commissioned");
     Serial.printf("  Open means: %s\n",
-                  INVERT_DIRECTION ? "extend the awning (direction inverted)" : "retract the awning (normal)");
+                  INVERT_DIRECTION ? "extend the awning for shade (awning sense)"
+                                   : "retract the awning (literal Matter sense)");
     Serial.printf(
         "  LED code:   %u pulse(s) - %s\n", static_cast<uint8_t>(currentCode), statusCodeDescription(currentCode));
 }
@@ -352,14 +382,26 @@ void printStatus() {
 // unknown input to Command::My, so passing input straight through would let a
 // typo (or `help`) silently transmit a stop.
 bool resolveRadioCommand(const String& token, Command& command, const char*& description) {
-    if (token.equalsIgnoreCase("open") || token.equalsIgnoreCase("up")) {
+    if (token.equalsIgnoreCase("retract") || token.equalsIgnoreCase("up")) {
         command = Command::Up;
-        description = "open (retract)";
+        description = "retract (roll up and away)";
         return true;
     }
-    if (token.equalsIgnoreCase("close") || token.equalsIgnoreCase("down")) {
+    if (token.equalsIgnoreCase("extend") || token.equalsIgnoreCase("down")) {
         command = Command::Down;
-        description = "close (extend)";
+        description = "extend (unroll for shade)";
+        return true;
+    }
+    // "open" and "close" follow INVERT_DIRECTION so the serial interface agrees
+    // with the controller: whatever Google Home calls open, these do too.
+    if (token.equalsIgnoreCase("open")) {
+        command = INVERT_DIRECTION ? Command::Down : Command::Up;
+        description = INVERT_DIRECTION ? "open (extend for shade)" : "open (retract)";
+        return true;
+    }
+    if (token.equalsIgnoreCase("close")) {
+        command = INVERT_DIRECTION ? Command::Up : Command::Down;
+        description = INVERT_DIRECTION ? "close (retract and put away)" : "close (extend)";
         return true;
     }
     if (token.equalsIgnoreCase("stop") || token.equalsIgnoreCase("my")) {

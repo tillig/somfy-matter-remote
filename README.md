@@ -96,9 +96,9 @@ This step registers the device's virtual remote as an additional remote on the a
 
 1. Locate the `Prog` button on the back of the physical Telis remote, often behind the battery cover or a small pinhole.
 2. Press and hold `Prog` on the physical remote until the awning jogs briefly, a short back-and-forth movement. The motor is now in programming mode for a few seconds.
-3. Within that window, register the device: hold the panel-mount button for about three seconds, until the status LED shows its pairing acknowledgment (six rapid blinks). On a bench with a serial monitor open, type `pair` instead.
+3. Within that window, register the device: hold the panel-mount button until the status LED gives two quick blinks, at about three seconds, then release. On a bench with a serial monitor open, type `pair` instead.
 4. The awning should jog again, confirming the new remote is registered.
-5. Test it. Short-press the button to stop the awning, or type `open`, `close`, and `stop` in the serial monitor. The awning should retract on open, extend on close, and stop on stop.
+5. Test it. Tap the button to stop the awning, or type `retract`, `extend`, and `stop` in the serial monitor. The awning should roll up on `retract`, unroll on `extend`, and halt on `stop`.
 
 Somfy RTS is transmit-only with no acknowledgment, so the device can never confirm the motor accepted the pairing; the awning jogging and then responding to commands is the only proof. For the full procedure, rolling-code details, and troubleshooting, see [the Somfy pairing guide](docs/pairing.md).
 
@@ -120,13 +120,15 @@ Once commissioned, control the awning by voice ("stop the awning," "open the awn
 
 ## Button Reference
 
-The panel-mount button on the device chooses its action by how long it is held. The status LED briefly shows an acknowledgment pattern for each press, then returns to its normal status code; see [LED Reference](#led-reference).
+The panel-mount button on the device chooses its action by how long it is held. The LED marks each threshold as you reach it, so you release the button on a cue instead of counting seconds. Watch the LED rather than a clock.
 
-| Press | Hold Duration | Action | LED Acknowledgment |
-| --- | --- | --- | --- |
-| Short | Under 1 second | Stop the awning (Somfy calls this `My`) | 1 short blink |
-| Medium | About 3 seconds | Pair with the awning (Somfy calls this `Prog`) | 6 rapid blinks |
-| Long | About 10 seconds | Factory reset: clears Wi-Fi credentials and Matter commissioning, reopening the `Awning-Setup` portal on next boot | 4 slow, heavy blinks |
+| Hold Until | LED Cue | Release Action |
+| --- | --- | --- |
+| Press registers | Blinks off and back on once | Stop the awning (Somfy calls this `My`) |
+| Pairing threshold, about 3 seconds | Two quick blinks | Pair with the awning (Somfy calls this `Prog`) |
+| Reset threshold, about 10 seconds | Four slow, heavy blinks | Factory reset, which fires while still held: clears Wi-Fi credentials and Matter commissioning, reopening the `Awning-Setup` portal on next boot |
+
+So a quick tap stops the awning; hold until the double blink and let go to pair; keep holding past it to reset. The reset fires on its own at the threshold rather than waiting for release, so its confirmation pattern cannot be mistaken for another cue.
 
 The onboard `BOOT` button is deliberately not used at runtime, because it ends up sealed inside the enclosure.
 
@@ -142,7 +144,7 @@ While idle, the LED reports device state as a repeating count of short pulses, w
 | 4 | Not yet added to Google Home: on Wi-Fi, but no Matter fabric yet |
 | 5 | Radio not detected: the CC1101 did not respond over SPI |
 
-A button press briefly overrides the idle code with its own acknowledgment pattern (see [Button Reference](#button-reference)), then the LED returns to the code above.
+While the button is held, the LED shows the hold cues instead of the idle count (see [Button Reference](#button-reference)), then returns to the code above.
 
 ## Troubleshooting
 
@@ -166,7 +168,7 @@ A practical caution for awnings: automatic extension in high wind can damage the
 
 ## Direction, Position, And Limitations
 
-Matter treats 0 percent lift as fully open (awning retracted) and 100 percent as fully closed (extended). The default maps Matter Open to Somfy Up and Matter Close to Somfy Down, which is convention-correct. If it feels backward, flip the `INVERT_DIRECTION` build flag and reflash, or rename the device. See [the direction semantics notes](docs/hardware.md#direction-semantics).
+This build uses the awning sense of the words: "open the awning" unrolls it for shade, and "close the awning" rolls it up and puts it away. That is `INVERT_DIRECTION=1`, the default here. Set the flag to 0 for the literal Matter reading, where open retracts. Either way the reported state matches the command issued, so the tile never contradicts itself. See [the direction semantics notes](docs/hardware.md#direction-semantics).
 
 Because Somfy RTS gives no position feedback, the device reports only the two end states. Asking for a specific percentage moves the awning to the nearer end stop rather than to a partial position.
 
