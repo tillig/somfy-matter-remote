@@ -1,0 +1,17 @@
+{
+  "builds": [
+    {
+      "chipFamily": "ESP32",
+      "parts": [
+        {
+          "offset": 65536,
+          "path": "https://github.com/tillig/somfy-matter-remote/releases/latest/download/firmware.bin"
+        }
+      ]
+    }
+  ],
+  "improv": false,
+  "name": "Somfy Awning Matter Remote (update)",
+  "new_install_prompt_erase": false,
+  "version": "latest"
+}

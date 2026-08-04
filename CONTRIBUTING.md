@@ -77,8 +77,10 @@ If a `feature/**` branch already has an open pull request, the branch-push build
 
 Consumers install the firmware from a browser with [ESP Web Tools](https://esphome.github.io/esp-web-tools/), so they never build from source. Two pieces support this.
 
-- The `release.yml` workflow runs on a version tag (for example `v1.0.0`), builds the firmware, and attaches the merged `firmware.factory.bin` to a GitHub Release. That image flashes at offset `0x0` and contains the bootloader, partition table, and application.
-- The `web-flasher/` directory holds the flasher page and its manifest, deployed to GitHub Pages by the `pages.yml` workflow. The manifest points at `releases/latest/download/firmware.factory.bin`, a stable URL that always resolves to the newest release, so the page never needs editing when firmware changes.
+- The `release.yml` workflow runs on a version tag (for example `v1.0.0`), builds the firmware, and attaches two images to a GitHub Release. `firmware.factory.bin` is the merged image: it flashes at offset `0x0` and contains the bootloader, partition table, and application, so it works on a blank board. `firmware.bin` is the application partition alone, flashed at `0x10000`.
+- The `web-flasher/` directory holds the flasher page and two manifests, deployed to GitHub Pages by the `pages.yml` workflow. Both point at `releases/latest/download/`, a stable URL that always resolves to the newest release, so the page never needs editing when firmware changes.
+
+The two images exist because the merged one cannot preserve device state. It spans the NVS region with erased padding, so flashing it clears the Matter fabric and the Somfy rolling code, and a cleared rolling code means re-pairing with the motor. `firmware-manifest.json` uses it for a first-time install, where that does not matter. `firmware-manifest-update.json` writes only the application at `0x10000` and leaves NVS untouched, so an update keeps the Wi-Fi credentials, the Matter commissioning, and the awning pairing. Keep both paths working: the update image alone cannot bring up a blank board, since it carries no bootloader or partition table.
 
 To cut a release, tag a commit on `main` and push the tag:
 

@@ -45,13 +45,26 @@ jobs:
       - name: Build firmware
         run: pio run
 
-      - name: Stage release binary
-        # The merged factory image flashes at offset 0x0 and is what the browser
-        # flasher and esptool both expect.
-        run: cp .pio/build/esp32dev/firmware.factory.bin firmware.factory.bin
+      - name: Stage release binaries
+        # Two images, because they serve different jobs:
+        #
+        # firmware.factory.bin is the merged image for a first-time install. It
+        # flashes at offset 0x0 and includes the bootloader and partition table,
+        # so it works on a blank board. It also spans the NVS region with erased
+        # padding, which clears the Matter fabric and the Somfy rolling code.
+        #
+        # firmware.bin is the app partition alone, flashed at 0x10000. It leaves
+        # NVS untouched, so an update keeps the Matter commissioning and the
+        # awning pairing. It cannot provision a blank board, because it carries
+        # no bootloader or partition table.
+        run: |
+          cp .pio/build/esp32dev/firmware.factory.bin firmware.factory.bin
+          cp .pio/build/esp32dev/firmware.bin firmware.bin
 
       - name: Publish release
         uses: softprops/action-gh-release@v2
         with:
-          files: firmware.factory.bin
+          files: |
+            firmware.factory.bin
+            firmware.bin
           generate_release_notes: true

@@ -7,6 +7,7 @@
 - [Test Voice And App Control](#test-voice-and-app-control)
 - [The Web Dashboard](#the-web-dashboard)
 - [Reconnection And Recovery](#reconnection-and-recovery)
+- [Updating The Firmware](#updating-the-firmware)
 - [Multi-Admin Sharing](#multi-admin-sharing)
 - [Troubleshooting](#troubleshooting)
 
@@ -69,6 +70,14 @@ After a power cycle, the device rejoins Wi-Fi and its Matter fabric automaticall
 If the network password is changed while the device is configured, its stored password becomes stale. The device detects the repeated authentication rejection (distinct from a network simply being down) and reopens its `Awning-Setup-XXXX` access point so the new password can be entered, keeping its Matter commissioning. The setup page explains that the saved password was rejected and prefills the network name, so only the new password is needed. This means a changed router password never requires a factory reset. The recommended order is to update the password on the router first, then reconnect the device through its setup portal.
 
 To change only the Wi-Fi network or password proactively, use the `Change Wi-Fi` form on the dashboard; that leaves Matter commissioning intact. To move to a different controller or recover from a bad state, do a factory reset by holding the panel-mount button to its reset threshold (about 10 seconds), which the LED confirms with four slow blinks. That decommissions Matter, clears the fabric data, and clears the stored Wi-Fi credentials, so the device reopens the setup access point on the next boot for fresh setup. The Somfy pairing and rolling code are unaffected; they live in separate storage.
+
+## Updating The Firmware
+
+Updating does not have to disturb any of the pairings. The Matter fabric data, the Wi-Fi credentials, and the Somfy rolling code all live in the NVS partition, which is separate from the program, so an update that writes only the program leaves them intact.
+
+Use the `Update Firmware` button on [the web flasher](https://paraesthesia.com/somfy-matter-remote/), or `platformio run --target upload` when building from source. Both write only the application partition.
+
+Two things do clear the stored state, so avoid them unless a fresh start is wanted: the flasher's `First-Time Install` path, whose merged image spans the NVS region, and `esptool erase-flash`. Either one means re-entering Wi-Fi credentials, adding the device to Google Home again, and re-pairing with the awning motor, because the motor tracks each remote by ID and rolling code and a reset code reads as an unknown remote.
 
 ## Multi-Admin Sharing
 

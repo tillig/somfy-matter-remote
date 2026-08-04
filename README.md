@@ -74,10 +74,12 @@ The easiest way to install the firmware is the browser-based flasher. It writes 
 
 1. Connect the ESP32 to a computer with a USB data cable.
 2. Open the [web flasher](https://paraesthesia.com/somfy-matter-remote/) in desktop Chrome or Edge. It relies on Web Serial, which Firefox, Safari, and mobile browsers do not support.
-3. Click `Connect and Install` and choose the ESP32's serial port when prompted.
+3. Click `Connect and Install` under `First-Time Install` and choose the ESP32's serial port when prompted.
 4. Wait for the install to finish, then continue with [Connect To Wi-Fi](#connect-to-wi-fi).
 
 The flasher installs the image from the most recent [release](https://github.com/tillig/somfy-matter-remote/releases). To build and flash from source instead, see [Building From Source](#building-from-source).
+
+The page offers a second path, `Update Firmware`, for a device that is already set up. It writes only the program and leaves stored settings alone, so the Wi-Fi credentials, the Google Home pairing, and the awning pairing all survive; use it for every update after the first install. `First-Time Install` writes the bootloader as well, which is what a blank board needs, but it clears those saved settings.
 
 ### Connect To Wi-Fi
 
