@@ -2,11 +2,12 @@
 
 - [What Commissioning Does](#what-commissioning-does)
 - [Connect The Device To Wi-Fi First](#connect-the-device-to-wi-fi-first)
-- [Before You Commission](#before-you-commission)
+- [Get The Matter Pairing Information](#get-the-matter-pairing-information)
 - [Add The Device To Google Home](#add-the-device-to-google-home)
 - [Test Voice And App Control](#test-voice-and-app-control)
 - [The Web Dashboard](#the-web-dashboard)
 - [Reconnection And Recovery](#reconnection-and-recovery)
+- [Updating The Firmware](#updating-the-firmware)
 - [Multi-Admin Sharing](#multi-admin-sharing)
 - [Troubleshooting](#troubleshooting)
 
@@ -24,16 +25,16 @@ On first boot, with no Wi-Fi credentials stored, the device hosts its own open W
 
 1. Power on the device. From a phone or laptop, join the open Wi-Fi network named `Awning-Setup-XXXX`, where `XXXX` is a per-device suffix (so two units never present the same name).
 2. A setup page should open automatically (a captive portal). If it does not, browse to `http://192.168.4.1`.
-3. Enter your home Wi-Fi network name and password, then choose `Save and Restart`.
+3. Enter your home Wi-Fi network name and password, then choose `Save and Restart`. A Show/Hide toggle next to the password field lets you check what was typed. The page also tells you the address the device will move to once it joins your network, for example `http://somfy-awning-a4c1.local`, so you know where to find it next.
 4. The device tests the connection while keeping the setup network up, so the page can report the result. If it connects, the page confirms and the device saves the credentials and reboots onto your Wi-Fi. If it cannot connect (for example a mistyped password), the page says so and lets you correct the entry and try again. Credentials are only saved after a successful test, so a typo is never stored.
 
 The credentials are stored in NVS and reused on later boots, so this is a one-time step. To change networks or update the password later, use the `Change Wi-Fi` form on [the web dashboard](#the-web-dashboard); that keeps the Matter commissioning intact and reverts to the current network if the new one cannot be reached. A factory reset (long button press) also clears the credentials and reopens the setup access point, but it additionally decommissions Matter, so prefer the dashboard for a simple network change.
 
-## Before You Commission
+## Get The Matter Pairing Information
 
-1. Complete [the Somfy pairing procedure](pairing.md) so radio control is already proven. Commissioning only adds the network control surface; it does not help debug the radio.
-2. Confirm the device is on your Wi-Fi (see the previous section), and that the phone running Google Home is on the same network.
-3. Get the Matter pairing information. On first boot before commissioning, the firmware prints the manual pairing code and the onboarding QR-code URL to the serial monitor. Once the device is on Wi-Fi, the same information is also available on [the web dashboard](#the-web-dashboard).
+Confirm the device is on your Wi-Fi (see the previous section), and that the phone running Google Home is on the same network.
+
+On first boot before commissioning, the firmware prints the manual pairing code and the onboarding QR-code URL to the serial monitor. Once the device is on Wi-Fi, the same information is also available on [the web dashboard](#the-web-dashboard).
 
 The firmware uses the Arduino Matter library's built-in test credentials. That is expected for a do-it-yourself device and is why the controller shows an uncertified-device warning during setup.
 
@@ -49,22 +50,34 @@ The serial log prints a commissioning-complete line when the fabric join succeed
 ## Test Voice And App Control
 
 1. Say "open the awning" and "close the awning," and use the tile's open, close, and stop controls.
-2. Confirm the motion matches expectation. With the default mapping, open retracts the awning and close extends it.
-3. If the direction feels backward, flip the `INVERT_DIRECTION` build flag, rebuild, and reflash, or simply rename the device and adjust how you phrase commands. See [the direction semantics notes](hardware.md#direction-semantics).
+2. Confirm the motion matches expectation. With this build's default mapping (`INVERT_DIRECTION=1`), open unrolls the awning for shade and close rolls it up and away.
+3. If the direction feels backward, set `INVERT_DIRECTION` to 0, rebuild, and reflash, or simply rename the device and adjust how you phrase commands. See [the direction semantics notes](hardware.md#direction-semantics).
 
 Because a Somfy awning gives no position feedback, the tile reports only the two end states. Dragging the slider or asking for a percentage moves the awning to the nearer end stop rather than to a partial position.
 
 ## The Web Dashboard
 
-Once the device is on Wi-Fi, it serves a small status page at `http://somfy-awning-XXXX.local` (where `XXXX` is the per-device suffix), or at the IP address shown in the serial log. The exact hostname is printed to serial on connect and shown on the page itself. The dashboard reports the hostname, IP address, Wi-Fi signal strength, and Matter commissioning state. Before commissioning it also shows the manual pairing code and a link to the QR code, so the pairing information is available without the serial monitor. After commissioning it points to multi-admin sharing for adding other ecosystems. The page also has a `Change Wi-Fi` form for moving the device to another network without a factory reset; if the new network cannot be reached, the device automatically returns to the current one, so a mistyped password will not lock it out.
+Once the device is on Wi-Fi, it serves a small status page at `http://somfy-awning-XXXX.local` (where `XXXX` is the per-device suffix), or at the IP address shown in the serial log. The exact hostname is printed to serial on connect and shown on the page itself. The dashboard's status table reports radio detection, whether any awning commands have been sent (and the current rolling code), Matter commissioning state, Wi-Fi SSID and signal strength, hostname, and IP address. An Awning Pairing section walks through the full add-a-remote procedure, including using the physical Telis remote's `Prog` button to put the motor into programming mode. A Startup Log section replays the boot messages, so the device can be checked without a serial monitor. Before commissioning the page also shows the manual pairing code and a link to the QR code. After commissioning it points to multi-admin sharing for adding other ecosystems. The page also has a `Change Wi-Fi` form, with a password Show/Hide toggle, for moving the device to another network without a factory reset; if the new network cannot be reached, the device automatically returns to the current one, so a mistyped password will not lock it out.
+
+The dashboard has no awning controls, because an open or close command is only useful once a controller can send it. It says so, and points to a quick tap of the panel-mount button for a stop and to Google Home for open and close after commissioning.
+
+Because Somfy RTS is transmit-only with no acknowledgment from the motor, the dashboard cannot report whether the awning accepted a pairing or a command; it says so plainly rather than implying a confirmed state. The only proof is the awning physically responding.
 
 ## Reconnection And Recovery
 
-After a power cycle, the device rejoins Wi-Fi and its Matter fabric automatically; it does not need re-commissioning. If the network is briefly unreachable it keeps retrying rather than dropping back into setup mode. The last-known position is restored from NVS so the tile shows a sensible state immediately.
+After a power cycle, the device rejoins Wi-Fi and its Matter fabric automatically; it does not need re-commissioning. If the network is briefly unreachable it keeps retrying rather than dropping back into setup mode, printing the disconnect reason in words to the serial log (for example "Wi-Fi disconnected: BEACON_TIMEOUT. Will keep retrying.") so a flaky connection can be diagnosed. The last-known position is restored from NVS so the tile shows a sensible state immediately.
 
 If the network password is changed while the device is configured, its stored password becomes stale. The device detects the repeated authentication rejection (distinct from a network simply being down) and reopens its `Awning-Setup-XXXX` access point so the new password can be entered, keeping its Matter commissioning. The setup page explains that the saved password was rejected and prefills the network name, so only the new password is needed. This means a changed router password never requires a factory reset. The recommended order is to update the password on the router first, then reconnect the device through its setup portal.
 
-To change only the Wi-Fi network or password proactively, use the `Change Wi-Fi` form on the dashboard; that leaves Matter commissioning intact. To move to a different controller or recover from a bad state, do a factory reset with a long press (about 10 seconds) of the panel-mount button. That decommissions Matter, clears the fabric data, and clears the stored Wi-Fi credentials, so the device reopens the setup access point on the next boot for fresh setup. The Somfy pairing and rolling code are unaffected; they live in separate storage.
+To change only the Wi-Fi network or password proactively, use the `Change Wi-Fi` form on the dashboard; that leaves Matter commissioning intact. To move to a different controller or recover from a bad state, do a factory reset by holding the panel-mount button to its reset threshold (about 10 seconds), which the LED confirms with four slow blinks. That decommissions Matter, clears the fabric data, and clears the stored Wi-Fi credentials, so the device reopens the setup access point on the next boot for fresh setup. The Somfy pairing and rolling code are unaffected; they live in separate storage.
+
+## Updating The Firmware
+
+Updating does not have to disturb any of the pairings. The Matter fabric data, the Wi-Fi credentials, and the Somfy rolling code all live in the NVS partition, which is separate from the program, so an update that writes only the program leaves them intact.
+
+Use the `Update Firmware` button on [the web flasher](https://paraesthesia.com/somfy-matter-remote/), or `platformio run --target upload` when building from source. Both write only the application partition.
+
+Two things do clear the stored state, so avoid them unless a fresh start is wanted: the flasher's `First-Time Install` path, whose merged image spans the NVS region, and `esptool erase-flash`. Either one means re-entering Wi-Fi credentials, adding the device to Google Home again, and re-pairing with the awning motor, because the motor tracks each remote by ID and rolling code and a reset code reads as an unknown remote.
 
 ## Multi-Admin Sharing
 

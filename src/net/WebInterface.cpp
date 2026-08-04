@@ -6,7 +6,9 @@
 #include <WiFi.h>
 
 #include "../config.h"
+#include "../diag/BootLog.h"
 #include "../matter/AwningCovering.h"
+#include "../rf/SomfyController.h"
 #include "../storage/ConfigStore.h"
 #include "WiFiConnection.h"
 
@@ -20,8 +22,9 @@ static DNSServer dnsServer;
 static constexpr uint16_t DNS_PORT = 53;
 static constexpr uint32_t REBOOT_DELAY_MS = 1500;
 
-WebInterface::WebInterface(WiFiConnection& net, ConfigStore& store, AwningCovering& awning)
-    : net(net), store(store), awning(awning) {}
+WebInterface::WebInterface(
+    WiFiConnection& net, ConfigStore& store, AwningCovering& awning, SomfyController& rf, BootLog& bootLog)
+    : net(net), store(store), awning(awning), rf(rf), bootLog(bootLog) {}
 
 WebInterface::~WebInterface() {
     server.stop();
@@ -134,25 +137,79 @@ static const char* PAGE_STYLE = "<style>body{font-family:system-ui,sans-serif;ma
                                 "table{border-collapse:collapse;margin-top:1rem;width:100%}"
                                 "td,th{text-align:left;padding:.4rem .6rem;border-bottom:1px solid #333}"
                                 "a{color:#6cf}.msg{margin-top:1rem;padding:.6rem .8rem;"
-                                "border-radius:6px;background:#223;border:1px solid #456}</style>";
+                                "border-radius:6px;background:#223;border:1px solid #456}"
+                                ".pw{display:flex;gap:.5rem;align-items:stretch}"
+                                ".pw button{margin:0;padding:.6rem .8rem;background:#444;font-size:.9rem;"
+                                "white-space:nowrap}"
+                                "pre{background:#0b0b0b;border:1px solid #333;border-radius:6px;"
+                                "padding:.7rem;overflow-x:auto;font-size:.8rem;line-height:1.4}"
+                                ".ok{color:#7d7}.warn{color:#fd6}.bad{color:#f77}</style>";
 
-String WebInterface::renderSetupPage(const String& message, const String& prefillSsid) {
+// A password input with a show/hide toggle, so a typed network password can be
+// checked before submitting. Uses a tiny inline script rather than a library.
+String WebInterface::renderPasswordField(const String& id, const String& label) {
+    String html = "<label for='" + id + "'>" + label + "</label>";
+    html += "<div class='pw'>";
+    html += "<input id='" + id + "' name='" + id + "' type='password' autocomplete='off'>";
+    html += "<button type='button' onclick=\"(function(b){var f=document.getElementById('" + id +
+            "');var s=f.type==='password';f.type=s?'text':'password';b.textContent=s?'Hide':'Show';})(this)\">Show"
+            "</button>";
+    html += "</div>";
+    return html;
+}
+
+String WebInterface::renderBootLog() const {
+    const uint8_t count = bootLog.count();
+    if (count == 0) {
+        return String();
+    }
+    String html = "<h2>Startup Log</h2>";
+    html += "<p>What the device reported while starting up, so it can be checked "
+            "without a serial monitor.</p><pre>";
+    for (uint8_t i = 0; i < count; i++) {
+        String entry = bootLog.line(i);
+        // Escape the few characters that would break out of the pre block.
+        entry.replace("&", "&amp;");
+        entry.replace("<", "&lt;");
+        entry.replace(">", "&gt;");
+        html += entry + "\n";
+    }
+    html += "</pre>";
+    return html;
+}
+
+String WebInterface::renderSetupPage(const String& message, const String& prefillSsid) const {
+    const String dashboardUrl = "http://" + net.getHostname() + ".local";
+
     String html = "<!DOCTYPE html><html><head><meta charset='utf-8'>";
     html += "<meta name='viewport' content='width=device-width,initial-scale=1'>";
     html += "<title>Awning Wi-Fi Setup</title>";
     html += PAGE_STYLE;
     html += "</head><body><h1>Somfy Awning Wi-Fi Setup</h1>";
-    html += "<p>Enter the Wi-Fi network this device should join. After it "
-            "connects, add it to Google Home as a Matter device.</p>";
+    html += "<p>Enter the Wi-Fi network this device should join. The password is "
+            "checked before it is saved, so a mistyped password is reported here "
+            "rather than silently stored.</p>";
     if (message.length() > 0) {
         html += "<p class='msg'>" + message + "</p>";
     }
     html += "<form method='POST' action='/save'>";
     html += "<label for='ssid'>Network name (SSID)</label>";
     html += "<input id='ssid' name='ssid' autocomplete='off' value='" + prefillSsid + "' required>";
-    html += "<label for='password'>Password</label>";
-    html += "<input id='password' name='password' type='password' autocomplete='off'>";
-    html += "<button type='submit'>Save and Restart</button></form></body></html>";
+    html += renderPasswordField("password", "Password");
+    html += "<button type='submit'>Save and Restart</button></form>";
+
+    // Tell people where the device moves to, so they are not left guessing after
+    // this access point disappears.
+    html += "<h2>What Happens Next</h2>";
+    html += "<p>After saving, this setup network shuts down and the device joins "
+            "your Wi-Fi. Its status page, including the Matter pairing code for "
+            "Google Home, is then at:</p>";
+    html += "<p class='msg'><strong>" + dashboardUrl + "</strong></p>";
+    html += "<p>If that address does not resolve on your network, the device also "
+            "prints its IP address to the serial monitor, and your router will "
+            "list it as <code>" +
+            net.getHostname() + "</code>.</p>";
+    html += "</body></html>";
     return html;
 }
 
@@ -177,26 +234,76 @@ String WebInterface::renderDashboardPage() const {
     html += PAGE_STYLE;
     html += "</head><body><h1>Somfy Awning</h1>";
 
+    const bool radioReady = rf.isRadioReady();
+    const uint16_t rollingCode = rf.peekRollingCode();
+
+    html += "<h2>Status</h2>";
     html += "<table>";
+    html += "<tr><th>Radio</th><td>";
+    html += radioReady ? "<span class='ok'>CC1101 detected</span>"
+                       : "<span class='bad'>CC1101 not detected. Check the SPI wiring and 3V3 power.</span>";
+    html += "</td></tr>";
+    html += "<tr><th>Frequency</th><td>433.42 MHz</td></tr>";
+    html += "<tr><th>Awning commands sent</th><td>";
+    if (rollingCode == 0) {
+        html += "<span class='warn'>None yet. The awning still needs the pairing step.</span>";
+    } else {
+        html += "Yes, rolling code is at " + String(rollingCode);
+    }
+    html += "</td></tr>";
+    html += "<tr><th>Matter</th><td>";
+    html += commissioned ? "<span class='ok'>Commissioned</span>"
+                         : "<span class='warn'>Not commissioned. Add it in Google Home using the code below.</span>";
+    html += "</td></tr>";
+    html += "<tr><th>Wi-Fi</th><td>" + store.getWiFiSsid() + " (" + String(net.getRssi()) + " dBm)</td></tr>";
     html += "<tr><th>Hostname</th><td>" + net.getHostname() + ".local</td></tr>";
     html += "<tr><th>IP address</th><td>" + net.getIP().toString() + "</td></tr>";
-    html += "<tr><th>Wi-Fi</th><td>" + store.getWiFiSsid() + " (" + String(net.getRssi()) + " dBm)</td></tr>";
-    html += "<tr><th>Matter</th><td>" + String(commissioned ? "Commissioned" : "Not commissioned") + "</td></tr>";
     html += "</table>";
 
+    // The device cannot know whether the motor accepted the pairing, because
+    // Somfy RTS is transmit-only with no acknowledgement. Say so plainly instead
+    // of implying a confirmed state.
+    html += "<h2>Awning Pairing</h2>";
+    html += "<p>Pairing registers this device as an extra remote on the awning "
+            "motor. Your existing remote keeps working. The motor only accepts a "
+            "new remote while it is in programming mode, which the existing "
+            "remote puts it into.</p>";
+    html += "<ol>";
+    html += "<li>Find the <code>Prog</code> button on the back of the physical "
+            "Telis remote, often behind the battery cover or in a small "
+            "pinhole.</li>";
+    html += "<li>Press and hold <code>Prog</code> until the awning jogs, a short "
+            "back-and-forth movement. The motor is now in programming mode for a "
+            "few seconds.</li>";
+    html += "<li>Within that window, hold this device's panel-mount button until "
+            "the status LED gives two quick blinks, at about three seconds, then "
+            "release. Keeping it held past that leads to a factory reset.</li>";
+    html += "<li>The awning should jog again, which means the new remote was "
+            "registered.</li>";
+    html += "</ol>";
+    html += "<p>Somfy radio is one-way, so this device cannot detect whether the "
+            "awning accepted it. The only proof is the awning moving on command. "
+            "There are no awning controls on this page: tap the panel-mount "
+            "button to send a stop, and try open and close from Google Home once "
+            "the device is commissioned.</p>";
+
     if (commissioned) {
+        html += "<h2>Matter</h2>";
         html += "<p>This device is commissioned. To share it with another "
                 "ecosystem (Alexa, Apple Home, SmartThings) use multi-admin "
                 "sharing from Google Home.</p>";
     } else {
         html += "<h2>Matter Pairing</h2>";
         html += "<p>Add this device in Google Home as a Matter device, then "
-                "scan the QR code or enter the manual code.</p>";
+                "scan the QR code or enter the manual code. Accept the "
+                "\"uncertified device\" warning; that is expected here.</p>";
         html += "<table>";
         html += "<tr><th>Manual code</th><td>" + Matter.getManualPairingCode() + "</td></tr>";
         html += "<tr><th>QR code</th><td><a href='" + Matter.getOnboardingQRCodeUrl() + "'>Open QR code</a></td></tr>";
         html += "</table>";
     }
+
+    html += renderBootLog();
 
     // Wi-Fi change form. Submitting it stores new credentials and reboots onto
     // the new network, leaving Matter commissioning intact (unlike a factory
@@ -209,8 +316,7 @@ String WebInterface::renderDashboardPage() const {
     html += "<form method='POST' action='/save'>";
     html += "<label for='ssid'>Network name (SSID)</label>";
     html += "<input id='ssid' name='ssid' autocomplete='off' value='" + store.getWiFiSsid() + "' required>";
-    html += "<label for='password'>Password</label>";
-    html += "<input id='password' name='password' type='password' autocomplete='off'>";
+    html += renderPasswordField("password", "Password");
     html += "<button type='submit'>Save and Restart</button></form>";
 
     html += "</body></html>";

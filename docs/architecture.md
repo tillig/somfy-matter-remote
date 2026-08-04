@@ -70,16 +70,16 @@ The dividing line is deliberate: a transient outage (router rebooting, device ou
 
 1. `setup()` initializes the status LED and pairing button pins, restores state through `ConfigStore`, then calls `WiFiConnection::begin()`.
 2. If the result is setup mode, `WebInterface::begin()` starts the portal and `setup()` returns early. `loop()` then services only the web interface and LED until the saved credentials trigger a reboot.
-3. In station mode, `SomfyController::begin()` initializes the CC1101 over SPI, points the Somfy emitter at GPIO2 (`GDO0`), sets ASK/OOK modulation, and tunes to 433.42 MHz. It confirms the radio responds over SPI and reports readiness; a failure almost always means a wiring fault.
+3. In station mode, `SomfyController::begin()` initializes the CC1101 over SPI, points the Somfy emitter at GPIO4 (`GDO0`), sets ASK/OOK modulation, and tunes to 433.42 MHz. It confirms the radio responds over SPI and reports readiness; a failure almost always means a wiring fault. The Somfy emitter setup runs last on purpose: the CC1101 driver's `setGDO0()` puts that pin in `INPUT` mode for receiving, so the emitter has to claim it as an output afterward or every transmission would silently do nothing.
 4. `AwningCovering::begin()` starts the Matter Window Covering endpoint as an `AWNING` type, restores the last-known lift position, registers the open/close/stop and go-to-percentage callbacks, and prints the manual pairing code and QR-code URL when the device is not yet commissioned. `Matter.begin()` runs last, after Wi-Fi is up.
 5. `loop()` services Wi-Fi reconnection, Matter housekeeping, the web interface, the serial command interface, the pairing button, and the LED on every pass. Nothing blocks, so Matter stays responsive.
 6. A Matter command invokes the matching `SomfyController` intent, then reports the resulting end-stop position back to controllers and persists it.
 
 ## Direction And Position Semantics
 
-Matter Window Covering treats 0 percent lift as fully open (awning retracted, letting light in) and 100 percent as fully closed (awning extended, blocking light). Somfy uses Up to retract and Down to extend.
+Matter Window Covering treats 0 percent lift as fully open and 100 percent as fully closed. Somfy uses Up to retract and Down to extend.
 
-The convention-correct default (`INVERT_DIRECTION=0`) maps Matter Open to Somfy Up and Matter Close to Somfy Down. The `INVERT_DIRECTION` compile-time flag flips only the physical motor direction; the reported Matter state stays convention-correct so a controller tile still reads right. See [Direction Semantics in the hardware reference](hardware.md) for the daily-use rationale.
+This build defaults to `INVERT_DIRECTION=1`, the awning sense of the words: Matter Open sends Somfy Down to unroll the awning for shade, and Matter Close sends Somfy Up to roll it away. Setting the flag to 0 gives the literal Matter reading, where Open retracts. The flag decides only which physical motion each word triggers; the reported lift always matches the command that was issued, so a controller tile never contradicts itself. See [Direction Semantics in the hardware reference](hardware.md) for the daily-use rationale.
 
 Because a Somfy RTS motor gives no position feedback, the endpoint reports only the two end states. An open, close, or go-to-percentage command drives the motor and then snaps the reported lift to the nearest end stop (a go-to value below 50 percent opens, otherwise it closes). This keeps slider drags and mid-value routines working sensibly without pretending to have real intermediate positioning. Timed partial-position estimation is a possible future enhancement, not a current feature.
 

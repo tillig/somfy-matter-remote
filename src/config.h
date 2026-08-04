@@ -25,7 +25,13 @@ static constexpr float FREQUENCY_MHZ = 433.42f;
 // Any free bidirectional GPIO works; MOSI uses 21 rather than the default 23
 // purely because it is easier to reach on the board. Avoid the input-only pins
 // (34 to 39), the strapping pins, and 6 to 11, which are wired to flash.
-static constexpr uint8_t EMITTER_GPIO = 2; // -> CC1101 GDO0 (OOK data out)
+//
+// The emitter must not be a strapping pin. It was originally GPIO2, which is
+// one: the CC1101 drives GDO0 as an output by default, so a powered radio held
+// GPIO2 high and the ESP32 could no longer be put into download mode, making
+// uploads fail with "Wrong boot mode detected" until the data wire was pulled.
+// GPIO4 is not a strapping pin, so the radio can stay connected while flashing.
+static constexpr uint8_t EMITTER_GPIO = 4; // -> CC1101 GDO0 (OOK data out)
 static constexpr uint8_t CC1101_SCK = 18;  // -> CC1101 SCK
 static constexpr uint8_t CC1101_MISO = 19; // -> CC1101 MISO / SO
 static constexpr uint8_t CC1101_MOSI = 21; // -> CC1101 MOSI / SI
@@ -41,24 +47,47 @@ static constexpr uint8_t STATUS_LED_GPIO = 33;  // to LED anode via ~330 ohm res
 static constexpr const char* NVS_ROLLING_CODE_NAMESPACE = "somfy";
 static constexpr const char* NVS_ROLLING_CODE_KEY = "awning";
 
-// Direction mapping. Matter Window Covering treats 0% lift as fully open
-// (retracted) and 100% as fully closed (extended). Somfy uses Up to retract and
-// Down to extend. With INVERT_DIRECTION=0 (the convention-correct default),
-// Matter Open maps to Somfy Up and Matter Close maps to Somfy Down. Flip the
-// build flag if "open" and "close" feel backward in daily use.
+// Direction mapping. Matter Window Covering treats 0% lift as fully open and
+// 100% as fully closed, and for a roller-style covering that means open =
+// retracted. An awning is spoken about the other way round: "open the awning"
+// means unroll it for shade, and "closed" means rolled up and put away.
+//
+// INVERT_DIRECTION=1 (the default for this build) adopts the awning sense, so
+// Matter Open sends Somfy Down to extend and Matter Close sends Somfy Up to
+// retract. Set it to 0 for the literal Matter reading, where Open retracts.
+//
+// Either way the reported lift percentage stays consistent with the command
+// that was issued, so a controller tile never contradicts itself: after Open it
+// reads open, after Close it reads closed.
 #ifndef INVERT_DIRECTION
-#define INVERT_DIRECTION 0
+#define INVERT_DIRECTION 1
 #endif
 
-// Button press-duration thresholds, in milliseconds. A press is classified by
-// how long the button is held before release.
-static constexpr uint32_t PRESS_SHORT_MAX_MS = 1000;  // < 1s  -> My (stop)
-static constexpr uint32_t PRESS_MEDIUM_MAX_MS = 5000; // ~3s   -> Prog (pair)
-// Anything held at least this long triggers a Matter factory reset.
-static constexpr uint32_t PRESS_LONG_MS = 10000; // ~10s  -> decommission
+// Button hold-duration thresholds, in milliseconds. The LED marks each
+// threshold as it is crossed, so the button is released on a cue rather than by
+// guessing at elapsed time:
+//   - Released before PRESS_PAIR_MS: stop the awning.
+//   - Released after PRESS_PAIR_MS:  send the pairing command.
+//   - Still held at PRESS_RESET_MS:  factory reset, fired without waiting for
+//     release so the LED confirmation is not mistaken for a further threshold.
+// There is deliberately no gap between the windows: every release maps to an
+// action the LED has already announced.
+static constexpr uint32_t PRESS_PAIR_MS = 3000;
+static constexpr uint32_t PRESS_RESET_MS = 10000;
 
 // Button debounce interval in milliseconds.
 static constexpr uint32_t BUTTON_DEBOUNCE_MS = 30;
+
+// Status LED timing. The idle indication is a repeating count of short pulses,
+// so the number of pulses identifies the device state (see StatusCode in
+// main.cpp). Counting pulses separated by a clear gap is far more reliable to
+// read than judging blink rates.
+// A shorter lit phase than gap makes the pulses read as distinct blips, which is
+// easier to count than an even on/off square wave.
+static constexpr uint16_t LED_PULSE_ON_MS = 120;
+static constexpr uint16_t LED_PULSE_OFF_MS = 220;
+// Gap between the end of one count and the start of the next.
+static constexpr uint16_t LED_CODE_GAP_MS = 1500;
 
 // Network and web interface. This ESP32 Matter build has no over-BLE
 // commissioning, so the firmware joins Wi-Fi itself using credentials entered

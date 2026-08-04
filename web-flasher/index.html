@@ -6,9 +6,24 @@
     <title>Flash Somfy Awning Matter Remote</title>
     <!--
       Browser-based flasher for the Somfy Awning Matter Remote, built on ESP Web
-      Tools. It reads firmware-manifest.json, which points at the firmware
-      binary published with each GitHub Release. Served from GitHub Pages; no
-      build tools or command line are needed on the user's machine.
+      Tools. Served from GitHub Pages; no build tools or command line are needed
+      on the user's machine.
+
+      There are two manifests, because the two jobs need different images:
+
+      firmware-manifest.json is the first-time install. It writes the merged
+      factory image at offset 0x0, which includes the bootloader and partition
+      table and therefore works on a blank board. That image also spans the NVS
+      region with erased padding, so it clears the Matter fabric and the Somfy
+      rolling code.
+
+      firmware-manifest-update.json is the update path. It writes the app
+      partition alone at 0x10000, leaving NVS untouched, so the Matter
+      commissioning and the awning pairing survive. It cannot provision a blank
+      board, since it carries no bootloader or partition table.
+
+      Both point at binaries attached to the latest GitHub Release, so this page
+      does not need rebuilding when the firmware changes.
 
       Web Serial is required, so this works in Chrome, Edge, and other
       Chromium-based desktop browsers. It does not work in Firefox or Safari, or
@@ -29,6 +44,10 @@
       }
       h1 {
         font-size: 1.5rem;
+      }
+      h2 {
+        font-size: 1.15rem;
+        margin-top: 2.5rem;
       }
       code {
         background: #f0f0f0;
@@ -65,10 +84,23 @@
 
     <ol>
       <li>Connect the ESP32 to this computer with a USB data cable.</li>
-      <li>Click <strong>Connect and Install</strong> below.</li>
+      <li>Pick the button below that matches what you are doing.</li>
       <li>Choose the ESP32's serial port when the browser asks.</li>
-      <li>Wait for the install to finish, then follow the on-device Wi-Fi setup.</li>
+      <li>Wait for the install to finish.</li>
     </ol>
+
+    <h2>First-Time Install</h2>
+
+    <p>
+      Use this on a new or blank board. It writes the complete image, including the bootloader, so it works on hardware
+      that has never run this firmware.
+    </p>
+
+    <div class="note">
+      This erases saved data. If the device is already paired, you will have to re-enter Wi-Fi credentials, add it to
+      Google Home again, and re-pair it with the awning motor. Use <a href="#update-firmware">Update Firmware</a>
+      instead to keep those.
+    </div>
 
     <p>
       <esp-web-install-button manifest="./firmware-manifest.json">
@@ -79,11 +111,34 @@
     </p>
 
     <p>
-      After flashing, the device hosts an <code>Awning-Setup-XXXX</code> Wi-Fi network for first-time configuration. See
-      the
+      Afterward the device hosts an <code>Awning-Setup-XXXX</code> Wi-Fi network for configuration. See the
       <a href="https://github.com/tillig/somfy-matter-remote/blob/main/docs/commissioning.md">commissioning guide</a>
-      for the full setup walkthrough, and the
-      <a href="https://github.com/tillig/somfy-matter-remote#readme">project README</a> for an overview.
+      for the full setup walkthrough.
+    </p>
+
+    <h2 id="update-firmware">Update Firmware</h2>
+
+    <p>
+      Use this on a device that already runs this firmware. It writes only the program, leaving stored settings alone,
+      so the Wi-Fi credentials, the Google Home pairing, and the awning pairing all survive. Nothing needs setting up
+      again afterward.
+    </p>
+
+    <div class="note">
+      This will not work on a blank board, because it does not write a bootloader. If the device does not start up after
+      this, run the first-time install above.
+    </div>
+
+    <p>
+      <esp-web-install-button manifest="./firmware-manifest-update.json">
+        <button slot="activate">Connect and Update</button>
+        <span slot="unsupported">Your browser does not support Web Serial. Use desktop Chrome or Edge.</span>
+        <span slot="not-allowed">Serial access was blocked. Allow it and reload the page.</span>
+      </esp-web-install-button>
+    </p>
+
+    <p>
+      See the <a href="https://github.com/tillig/somfy-matter-remote#readme">project README</a> for an overview.
     </p>
   </body>
 </html>

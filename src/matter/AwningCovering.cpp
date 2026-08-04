@@ -18,9 +18,10 @@ void AwningCovering::begin() {
     // No tilt: an awning is a lift-only covering.
     covering.begin(restoredLift, 0, MatterWindowCovering::AWNING);
 
-    // "Open" in Matter means lift to 0% (retract). With INVERT_DIRECTION the
-    // physical direction is flipped while the reported state stays convention-
-    // correct, so Google Home's tile still reads right.
+    // "Open" in Matter means lift to 0%. With INVERT_DIRECTION=1 (this build's
+    // default) that is the awning sense of the word, so Open extends the awning
+    // for shade and Close rolls it away. The reported lift always matches the
+    // command that was issued, so the controller tile never contradicts itself.
     covering.onOpen([this]() -> bool {
         INVERT_DIRECTION ? rf.extend() : rf.retract();
         moveToEndStop(LIFT_OPEN);

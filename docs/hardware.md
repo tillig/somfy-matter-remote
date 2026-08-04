@@ -70,7 +70,7 @@ Many CC1101 modules, including the Ebyte `E07-M1101D-SMA` used for this build, s
 | `D19` | 19 | 7 (`MISO`, also `GDO1`) | SPI data from radio |
 | `D21` | 21 | 6 (`MOSI`) | SPI data to radio |
 | `D5` | 5 | 4 (`CSN`) | SPI chip select |
-| `D2` | 2 | 3 (`GDO0`) | Somfy data output, on-off-keying input to radio |
+| `D4` | 4 | 3 (`GDO0`) | Somfy data output, on-off-keying input to radio |
 
 The full `E07-M1101D-SMA` pinout, for reference while wiring:
 
@@ -100,13 +100,25 @@ The dedicated pairing button and status LED use spare GPIOs. The button relies o
 | `D33` | 33 | LED anode via ~330 ohm resistor | Pairing and status feedback |
 | `GND` | GND | LED cathode | LED return to ground |
 
-The button action is chosen by how long it is held, and the LED confirms each action. See [the pairing procedure](pairing.md) for how the durations map to Somfy commands.
+The button action is chosen by how long it is held. The LED marks each threshold as it is crossed, so the button is released on a cue rather than by estimating elapsed time, and it returns to the idle status code afterward. See [the pairing procedure](pairing.md) for how the actions map to Somfy commands.
 
-| Action | Hold duration | Effect | LED feedback |
-| --- | --- | --- | --- |
-| Short press | Under 1 second | Somfy My (stop) | Single short blink |
-| Medium press | About 3 seconds | Somfy Prog (add-a-remote) | Rapid six-blink flurry |
-| Long press | About 10 seconds | Full factory reset: clears Wi-Fi credentials and decommissions Matter; device reopens `Awning-Setup` portal on next boot | Slow four-blink pattern |
+| Hold until | LED cue | Release effect |
+| --- | --- | --- |
+| Press registers | Blinks off and back on once | Stop the awning (Somfy calls this `My`) |
+| Pairing threshold, about 3 seconds | Two quick blinks | Pair with the awning (Somfy calls this `Prog`) |
+| Reset threshold, about 10 seconds | Four slow, heavy blinks | Full factory reset, fired while still held: clears Wi-Fi credentials and decommissions Matter; device reopens `Awning-Setup` portal on next boot |
+
+Each cue is short enough to finish before the next threshold is due, so a cue is never still playing when the following one arrives. The factory reset fires on reaching its threshold rather than on release, so continuing to hold cannot trigger anything further.
+
+While idle (not acknowledging a button press), the LED reports device state as a repeating count of short pulses, with a 1.5-second gap between repetitions; the pulse count is the code, evaluated most-blocking-first so the LED always shows the next thing to fix. Solid on, with no counting, means the device is still booting.
+
+| Pulses | Meaning |
+| --- | --- |
+| 1 | Ready: Wi-Fi is up, Matter is commissioned, and the radio is detected |
+| 2 | Waiting for Wi-Fi setup: the device is hosting the `Awning-Setup-XXXX` portal |
+| 3 | Cannot reach Wi-Fi: credentials are stored but the device is not connecting |
+| 4 | Not yet added to Google Home: on Wi-Fi, but no Matter fabric yet |
+| 5 | Radio not detected: the CC1101 did not respond over SPI |
 
 ## Wiring Diagram
 
@@ -117,7 +129,7 @@ flowchart LR
       esp32_usb["USB"]
       esp32_3v3["3V3"]
       esp32_gnd["GND"]
-      esp32_d2["D2 (GDO0 data)"]
+      esp32_d4["D4 (GDO0 data)"]
       esp32_d5["D5 (CSN)"]
       esp32_d18["D18 (SCK)"]
       esp32_d19["D19 (MISO)"]
@@ -142,7 +154,7 @@ flowchart LR
     esp32_d19 --> cc_miso
     esp32_d21 --> cc_mosi
     esp32_d5 --> cc_csn
-    esp32_d2 --> cc_gdo0
+    esp32_d4 --> cc_gdo0
     cc_gdo0 --- cc_ant
 
     button["Pairing Button"]
@@ -176,7 +188,7 @@ Wire colors used for this build. The diagram edges above are tinted to match, an
 | Brown | `D19` | CC1101 pin 7 | `MISO` |
 | Orange | `D21` | CC1101 pin 6 | `MOSI` |
 | Purple | `D5` | CC1101 pin 4 | `CSN` |
-| Green | `D2` | CC1101 pin 3 | `GDO0`, the Somfy data line |
+| Green | `D4` | CC1101 pin 3 | `GDO0`, the Somfy data line |
 | Light gray | `D32` | Pushbutton leg A | Pairing button input |
 | Yellow | `D33` | LED anode via resistor | Status LED |
 
@@ -189,7 +201,7 @@ With USB disconnected, confirm the wiring before first power-on:
 1. Confirm CC1101 `VCC` (pin 2) goes to ESP32 `3V3` and never to `5V`.
 2. Confirm all grounds are common, including CC1101 `GND` (pin 1).
 3. Confirm the SPI pins map exactly: GPIO18 to `SCK` (pin 5), GPIO19 to `MISO` (pin 7), GPIO21 to `MOSI` (pin 6), GPIO5 to `CSN` (pin 4).
-4. Confirm GPIO2 goes to `GDO0` (pin 3), the data line the Somfy code toggles.
+4. Confirm GPIO4 goes to `GDO0` (pin 3), the data line the Somfy code toggles. Do not use GPIO2: it is a strapping pin, and because the CC1101 drives `GDO0` as an output by default, a powered radio on GPIO2 blocks the ESP32 from entering download mode, so uploads fail until the wire is pulled.
 5. Confirm `GDO2` (pin 8) is left unconnected.
 6. Confirm the pairing button bridges GPIO32 to ground: with the internal pull-up it reads HIGH when released and LOW when pressed.
 7. Confirm the antenna is attached before transmitting. Transmitting without an antenna can damage the radio.
@@ -202,6 +214,8 @@ The awning motor is usually near a wall inside which the physical remote already
 
 ## Direction Semantics
 
-Matter treats 0 percent lift as fully open (retracted) and 100 percent as fully closed (extended). Somfy uses Up to retract and Down to extend. The default maps Matter Open to Somfy Up and Matter Close to Somfy Down, which is convention-correct.
+Matter treats 0 percent lift as fully open and 100 percent as fully closed. For a roller blind that means open equals retracted. An awning is spoken about the other way round: "open the awning" means unroll it for shade, and "closed" means rolled up and put away.
 
-Some people naturally say "open the awning" to mean "deploy it for shade," which is the opposite. If the direction feels backward in daily use, flip the `INVERT_DIRECTION` build flag and reflash, or simply rename the device in the controller app. The flag changes only the physical motor direction; the reported Matter state stays convention-correct.
+This build follows the awning sense, with `INVERT_DIRECTION=1`. Matter Open sends Somfy Down to extend, and Matter Close sends Somfy Up to retract. Set the flag to 0 for the literal Matter reading, where Open retracts.
+
+Either setting keeps the reported lift percentage consistent with the command that was issued, so a controller tile never contradicts itself: after Open it reads open, and after Close it reads closed. What the flag changes is which physical motion the words "open" and "close" trigger. The serial `retract` and `extend` commands name the motion directly and are unaffected.
