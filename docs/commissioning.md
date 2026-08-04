@@ -75,7 +75,7 @@ To change only the Wi-Fi network or password proactively, use the `Change Wi-Fi`
 
 Updating does not have to disturb any of the pairings. The Matter fabric data, the Wi-Fi credentials, and the Somfy rolling code all live in the NVS partition, which is separate from the program, so an update that writes only the program leaves them intact.
 
-Use the `Update Firmware` button on [the web flasher](https://paraesthesia.com/somfy-matter-remote/), or `platformio run --target upload` when building from source. Both write only the application partition.
+Use the `Update Firmware` button on [the web flasher](https://paraesthesia.com/somfy-matter-remote/), or `platformio run --target upload` when building from source. Both write only the application partition. The flasher asks whether to erase the device before installing; leave `Erase device` unchecked, since checking it clears the stored state that this path exists to preserve.
 
 Two things do clear the stored state, so avoid them unless a fresh start is wanted: the flasher's `First-Time Install` path, whose merged image spans the NVS region, and `esptool erase-flash`. Either one means re-entering Wi-Fi credentials, adding the device to Google Home again, and re-pairing with the awning motor, because the motor tracks each remote by ID and rolling code and a reset code reads as an unknown remote.
 

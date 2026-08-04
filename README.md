@@ -79,7 +79,7 @@ The easiest way to install the firmware is the browser-based flasher. It writes 
 
 The flasher installs the image from the most recent [release](https://github.com/tillig/somfy-matter-remote/releases). To build and flash from source instead, see [Building From Source](#building-from-source).
 
-The page offers a second path, `Update Firmware`, for a device that is already set up. It writes only the program and leaves stored settings alone, so the Wi-Fi credentials, the Google Home pairing, and the awning pairing all survive; use it for every update after the first install. `First-Time Install` writes the bootloader as well, which is what a blank board needs, but it clears those saved settings.
+The page offers a second path, `Update Firmware`, for a device that is already set up. It writes only the program and leaves stored settings alone, so the Wi-Fi credentials, the Google Home pairing, and the awning pairing all survive; use it for every update after the first install. The browser asks whether to erase the device first: leave `Erase device` unchecked, or those pairings are lost anyway. `First-Time Install` writes the bootloader as well, which is what a blank board needs, but it clears those saved settings.
 
 ### Connect To Wi-Fi
 

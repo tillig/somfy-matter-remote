@@ -12,6 +12,10 @@ on:
     paths:
       - "web-flasher/**"
       - ".github/workflows/pages.yml"
+  # Republish when a release is created, so the firmware served alongside the
+  # page is the newest one.
+  release:
+    types: [published]
   workflow_dispatch:
 
 permissions:
@@ -38,6 +42,21 @@ jobs:
 
       - name: Configure Pages
         uses: actions/configure-pages@v5
+
+      # The firmware is served from the Pages origin rather than linked from the
+      # GitHub Release. A release asset URL redirects cross-origin to
+      # objects.githubusercontent.com, which the browser blocks as a CORS
+      # violation, so ESP Web Tools' fetch fails with a bare "Failed to fetch".
+      # Same-origin copies avoid the redirect entirely.
+      - name: Fetch release firmware into the flasher directory
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release download --repo "$GITHUB_REPOSITORY" \
+            --pattern 'firmware.bin' \
+            --pattern 'firmware.factory.bin' \
+            --dir web-flasher
+          ls -l web-flasher
 
       - name: Upload flasher as Pages artifact
         uses: actions/upload-pages-artifact@v3
