@@ -25,7 +25,13 @@ static constexpr float FREQUENCY_MHZ = 433.42f;
 // Any free bidirectional GPIO works; MOSI uses 21 rather than the default 23
 // purely because it is easier to reach on the board. Avoid the input-only pins
 // (34 to 39), the strapping pins, and 6 to 11, which are wired to flash.
-static constexpr uint8_t EMITTER_GPIO = 2; // -> CC1101 GDO0 (OOK data out)
+//
+// The emitter must not be a strapping pin. It was originally GPIO2, which is
+// one: the CC1101 drives GDO0 as an output by default, so a powered radio held
+// GPIO2 high and the ESP32 could no longer be put into download mode, making
+// uploads fail with "Wrong boot mode detected" until the data wire was pulled.
+// GPIO4 is not a strapping pin, so the radio can stay connected while flashing.
+static constexpr uint8_t EMITTER_GPIO = 4; // -> CC1101 GDO0 (OOK data out)
 static constexpr uint8_t CC1101_SCK = 18;  // -> CC1101 SCK
 static constexpr uint8_t CC1101_MISO = 19; // -> CC1101 MISO / SO
 static constexpr uint8_t CC1101_MOSI = 21; // -> CC1101 MOSI / SI

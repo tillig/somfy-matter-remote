@@ -70,7 +70,7 @@ Many CC1101 modules, including the Ebyte `E07-M1101D-SMA` used for this build, s
 | `D19` | 19 | 7 (`MISO`, also `GDO1`) | SPI data from radio |
 | `D21` | 21 | 6 (`MOSI`) | SPI data to radio |
 | `D5` | 5 | 4 (`CSN`) | SPI chip select |
-| `D2` | 2 | 3 (`GDO0`) | Somfy data output, on-off-keying input to radio |
+| `D4` | 4 | 3 (`GDO0`) | Somfy data output, on-off-keying input to radio |
 
 The full `E07-M1101D-SMA` pinout, for reference while wiring:
 
@@ -127,7 +127,7 @@ flowchart LR
       esp32_usb["USB"]
       esp32_3v3["3V3"]
       esp32_gnd["GND"]
-      esp32_d2["D2 (GDO0 data)"]
+      esp32_d4["D4 (GDO0 data)"]
       esp32_d5["D5 (CSN)"]
       esp32_d18["D18 (SCK)"]
       esp32_d19["D19 (MISO)"]
@@ -152,7 +152,7 @@ flowchart LR
     esp32_d19 --> cc_miso
     esp32_d21 --> cc_mosi
     esp32_d5 --> cc_csn
-    esp32_d2 --> cc_gdo0
+    esp32_d4 --> cc_gdo0
     cc_gdo0 --- cc_ant
 
     button["Pairing Button"]
@@ -186,7 +186,7 @@ Wire colors used for this build. The diagram edges above are tinted to match, an
 | Brown | `D19` | CC1101 pin 7 | `MISO` |
 | Orange | `D21` | CC1101 pin 6 | `MOSI` |
 | Purple | `D5` | CC1101 pin 4 | `CSN` |
-| Green | `D2` | CC1101 pin 3 | `GDO0`, the Somfy data line |
+| Green | `D4` | CC1101 pin 3 | `GDO0`, the Somfy data line |
 | Light gray | `D32` | Pushbutton leg A | Pairing button input |
 | Yellow | `D33` | LED anode via resistor | Status LED |
 
@@ -199,7 +199,7 @@ With USB disconnected, confirm the wiring before first power-on:
 1. Confirm CC1101 `VCC` (pin 2) goes to ESP32 `3V3` and never to `5V`.
 2. Confirm all grounds are common, including CC1101 `GND` (pin 1).
 3. Confirm the SPI pins map exactly: GPIO18 to `SCK` (pin 5), GPIO19 to `MISO` (pin 7), GPIO21 to `MOSI` (pin 6), GPIO5 to `CSN` (pin 4).
-4. Confirm GPIO2 goes to `GDO0` (pin 3), the data line the Somfy code toggles.
+4. Confirm GPIO4 goes to `GDO0` (pin 3), the data line the Somfy code toggles. Do not use GPIO2: it is a strapping pin, and because the CC1101 drives `GDO0` as an output by default, a powered radio on GPIO2 blocks the ESP32 from entering download mode, so uploads fail until the wire is pulled.
 5. Confirm `GDO2` (pin 8) is left unconnected.
 6. Confirm the pairing button bridges GPIO32 to ground: with the internal pull-up it reads HIGH when released and LOW when pressed.
 7. Confirm the antenna is attached before transmitting. Transmitting without an antenna can damage the radio.

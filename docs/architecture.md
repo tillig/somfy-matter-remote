@@ -70,7 +70,7 @@ The dividing line is deliberate: a transient outage (router rebooting, device ou
 
 1. `setup()` initializes the status LED and pairing button pins, restores state through `ConfigStore`, then calls `WiFiConnection::begin()`.
 2. If the result is setup mode, `WebInterface::begin()` starts the portal and `setup()` returns early. `loop()` then services only the web interface and LED until the saved credentials trigger a reboot.
-3. In station mode, `SomfyController::begin()` initializes the CC1101 over SPI, points the Somfy emitter at GPIO2 (`GDO0`), sets ASK/OOK modulation, and tunes to 433.42 MHz. It confirms the radio responds over SPI and reports readiness; a failure almost always means a wiring fault.
+3. In station mode, `SomfyController::begin()` initializes the CC1101 over SPI, points the Somfy emitter at GPIO4 (`GDO0`), sets ASK/OOK modulation, and tunes to 433.42 MHz. It confirms the radio responds over SPI and reports readiness; a failure almost always means a wiring fault.
 4. `AwningCovering::begin()` starts the Matter Window Covering endpoint as an `AWNING` type, restores the last-known lift position, registers the open/close/stop and go-to-percentage callbacks, and prints the manual pairing code and QR-code URL when the device is not yet commissioned. `Matter.begin()` runs last, after Wi-Fi is up.
 5. `loop()` services Wi-Fi reconnection, Matter housekeeping, the web interface, the serial command interface, the pairing button, and the LED on every pass. Nothing blocks, so Matter stays responsive.
 6. A Matter command invokes the matching `SomfyController` intent, then reports the resulting end-stop position back to controllers and persists it.

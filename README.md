@@ -151,6 +151,7 @@ A button press briefly overrides the idle code with its own acknowledgment patte
 - **Can't find the device on the network.** Check the serial monitor or your router for its IP address, and confirm the network is not blocking mDNS. See [the commissioning troubleshooting section](docs/commissioning.md#troubleshooting).
 - **Google Home can't find the device.** Confirm the phone and the ESP32 are on the same Wi-Fi network and subnet, and that the network allows the IPv6 and mDNS traffic Matter relies on. Many mesh and guest networks block this.
 - **Direction feels backward.** Flip the `INVERT_DIRECTION` build flag and reflash, or simply rename the device. See [Direction, Position, And Limitations](#direction-position-and-limitations).
+- **Flashing fails with "Wrong boot mode detected."** Something is holding a strapping pin at reset. Disconnect the CC1101 `GDO0` data wire and try again. This is why the data line uses `D4` rather than `D2`, which is a strapping pin; a board wired to `D2` cannot be flashed with the radio powered. See [the CC1101 radio wiring table](docs/hardware.md#cc1101-radio-wiring).
 
 ## Automations
 
