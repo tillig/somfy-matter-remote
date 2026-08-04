@@ -332,7 +332,7 @@ void printHelp() {
     Serial.println(F("  extend  - unroll the awning for shade  (Somfy Down)"));
     Serial.println(F("  stop    - stop the awning              (Somfy My)"));
     Serial.println(F("  pair    - send the pairing command     (Somfy Prog)"));
-    Serial.println(F("  status  - print radio, network, and Matter state"));
+    Serial.println(F("  status  - print version, radio, network, and Matter state"));
     Serial.println(F("  log     - replay the startup log"));
     Serial.println(F("  help    - show this list"));
     // These name the motor direction rather than Matter's open/close, because
@@ -343,6 +343,7 @@ void printHelp() {
 
 void printStatus() {
     Serial.println(F("[status] Somfy Awning Matter Remote"));
+    Serial.printf("  Firmware:   %s\n", FIRMWARE_VERSION);
 
     // Radio.
     Serial.printf(
@@ -467,7 +468,7 @@ void setup() {
     currentCode = StatusCode::Booting;
     ledWrite(true);
 
-    bootLog.addf("[boot] Somfy Awning Matter Remote starting.");
+    bootLog.addf("[boot] Somfy Awning Matter Remote %s starting.", FIRMWARE_VERSION);
 
     configStore.begin();
 

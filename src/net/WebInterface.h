@@ -54,6 +54,10 @@ private:
     // log rendered as a block.
     static String renderPasswordField(const String& id, const String& label);
     String renderBootLog() const;
+    // Client-side update check: compares the installed version against the
+    // latest GitHub release from the browser, so the device makes no outbound
+    // network call. Fails quietly, leaving only the installed version shown.
+    static String renderUpdateCheck();
 
     WiFiConnection& net;
     ConfigStore& store;
